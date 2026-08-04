@@ -60,7 +60,7 @@ func NewRegistry(timeout, cacheTTL time.Duration, adapters ...Adapter) *Registry
 }
 
 func DirectRegistry() *Registry {
-	return NewRegistry(15*time.Second, 5*time.Minute, DirectAdapter{})
+	return NewRegistry(15*time.Second, 5*time.Minute, YouTubeAdapter{}, DirectAdapter{})
 }
 
 func (r *Registry) Classify(rawURL string) (string, error) {
@@ -119,6 +119,30 @@ func (DirectAdapter) Match(rawURL string) bool {
 	}
 	host := strings.ToLower(parsed.Hostname())
 	return host != "youtu.be" && host != "youtube.com" && !strings.HasSuffix(host, ".youtube.com")
+}
+
+type YouTubeAdapter struct{}
+
+func (YouTubeAdapter) Kind() string { return "youtube" }
+
+func (YouTubeAdapter) Match(rawURL string) bool {
+	parsed, err := url.ParseRequestURI(strings.TrimSpace(rawURL))
+	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || len(rawURL) > 2048 {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "youtu.be" || host == "youtube.com" || strings.HasSuffix(host, ".youtube.com")
+}
+
+func (adapter YouTubeAdapter) Resolve(_ context.Context, rawURL string) (Playable, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	if !adapter.Match(rawURL) {
+		return Playable{}, ErrInvalid
+	}
+	// mpv's ytdl_hook delegates extraction to yt-dlp and handles the resulting
+	// short-lived media URL. Keeping the original URL here avoids persisting an
+	// expiring provider URL in the queue.
+	return Playable{Kind: adapter.Kind(), OriginalURL: rawURL, PlaybackURL: rawURL}, nil
 }
 
 func (adapter DirectAdapter) Resolve(_ context.Context, rawURL string) (Playable, error) {

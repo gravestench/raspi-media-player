@@ -302,8 +302,8 @@ provider.
 - [x] Detect provider failures and return actionable, non-sensitive errors.
 - [x] Add contract tests shared by all source adapters.
 - [x] If an acceptable YouTube approach is selected, implement it as an optional
-      adapter with explicit configuration and tests. (No acceptable approach was
-      selected; YouTube URLs return `unsupported_source`.)
+      adapter with explicit configuration and tests. (YouTube URLs are handled
+      by an explicit adapter through mpv and the external `yt-dlp` executable.)
 
 Acceptance criteria:
 
@@ -367,8 +367,7 @@ milestone is revised:
   2026-08-04.
 - **Milestone 8:** Complete and verified locally on 2026-08-04.
 - **Milestone 9:** Complete and verified locally on 2026-08-04. The provider
-  boundary is implemented; YouTube extraction is intentionally disabled based
-  on the documented technical and platform-policy review.
+  boundary is implemented; YouTube queue input is enabled through mpv/yt-dlp.
 - **Milestone 10:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04, including diagnostics, live browser smoke testing, and playback
   resource observation.

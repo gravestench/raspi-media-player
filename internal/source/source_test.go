@@ -23,8 +23,15 @@ func TestDirectAdapterContract(t *testing.T) {
 			t.Errorf("classify %q: %v", invalid, err)
 		}
 	}
-	if _, err := registry.Classify("https://www.youtube.com/watch?v=example"); !errors.Is(err, ErrUnsupported) {
-		t.Errorf("classify disabled provider: %v", err)
+	for _, youtubeURL := range []string{"https://www.youtube.com/watch?v=example", "https://youtu.be/example"} {
+		kind, err := registry.Classify(youtubeURL)
+		if err != nil || kind != "youtube" {
+			t.Errorf("classify YouTube URL %q: kind=%q err=%v", youtubeURL, kind, err)
+		}
+		playable, err := registry.Resolve(context.Background(), kind, youtubeURL)
+		if err != nil || playable.PlaybackURL != youtubeURL {
+			t.Errorf("resolve YouTube URL %q: %+v err=%v", youtubeURL, playable, err)
+		}
 	}
 }
 

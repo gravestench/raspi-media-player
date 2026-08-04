@@ -23,9 +23,9 @@ startup errors. On the validated Pi the analog output is
 ## Stream fails or stalls
 
 Try KFJC from the household station directory. If it works, the other URL is
-unreachable or not a direct media stream. Failed provider items do not block
-later direct streams. YouTube URLs are intentionally unsupported; see
-`sources.md`.
+unreachable or not a direct media stream. For YouTube, confirm `yt-dlp` is
+installed and current. Failed provider items do not block later direct streams;
+see `sources.md`.
 
 ## Service will not start
 

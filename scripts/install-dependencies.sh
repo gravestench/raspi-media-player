@@ -56,6 +56,7 @@ mpv
 passwd
 procps
 sqlite3
+yt-dlp
 "
 
 missing_packages=""
@@ -72,7 +73,7 @@ if [ "$MODE" = check ]; then
     fi
 
     missing_commands=""
-    for command_name in aplay curl ffmpeg jq mpv sqlite3 start-stop-daemon; do
+    for command_name in aplay curl ffmpeg jq mpv sqlite3 start-stop-daemon yt-dlp; do
         if ! command -v "$command_name" >/dev/null 2>&1; then
             missing_commands="$missing_commands $command_name"
         fi

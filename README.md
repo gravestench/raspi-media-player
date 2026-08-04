@@ -10,7 +10,8 @@ the roadmap and current status.
 
 - Go 1.24 or newer for development
 - `curl` and `jq` for API regression tests
-- Raspberry Pi OS dependencies will include `mpv` when playback is implemented
+- Raspberry Pi playback uses `mpv`; YouTube URL support also uses the external
+  `yt-dlp` executable installed by the dependency script
 
 ## Run locally
 

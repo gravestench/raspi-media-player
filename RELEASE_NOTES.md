@@ -10,8 +10,8 @@ Validated target: Debian 12 ARM64 Raspberry Pi with an attached ALSA speaker.
 
 Known limitations:
 
-- Direct HTTP(S) audio and internet-radio streams are supported. YouTube is
-  intentionally unsupported after the documented platform-policy review.
+- Direct HTTP(S) audio, internet-radio streams, and YouTube URLs are supported.
+  YouTube playback is best-effort and requires the external `yt-dlp` executable.
 - One Raspberry Pi/output zone is supported.
 - The service is designed for a trusted household LAN, not public internet
   exposure. TLS and password recovery are not included.

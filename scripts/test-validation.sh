@@ -9,9 +9,11 @@ invalid=$(curl --silent --output "$VALIDATION_TMP/invalid.json" --write-out '%{h
 [ "$invalid" = 422 ] || { echo "invalid URL: expected 422, got $invalid" >&2; exit 1; }
 [ "$(jq -r .error.code "$VALIDATION_TMP/invalid.json")" = invalid_url ] || { echo "invalid URL: unstable error code" >&2; exit 1; }
 
-youtube=$(curl --silent --output "$VALIDATION_TMP/youtube.json" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{"url":"https://www.youtube.com/watch?v=example"}' "$TEST_BASE_URL/api/v1/queue/items")
-[ "$youtube" = 422 ] || { echo "disabled YouTube adapter: expected 422, got $youtube" >&2; exit 1; }
-[ "$(jq -r .error.code "$VALIDATION_TMP/youtube.json")" = unsupported_source ] || { echo "disabled YouTube adapter: expected unsupported_source" >&2; exit 1; }
+youtube=$(curl --silent --output "$VALIDATION_TMP/youtube.json" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}' "$TEST_BASE_URL/api/v1/queue/items")
+[ "$youtube" = 201 ] || { echo "YouTube queue input: expected 201, got $youtube" >&2; exit 1; }
+[ "$(jq -r '.items[0].source.kind' "$VALIDATION_TMP/youtube.json")" = youtube ] || { echo "YouTube queue input: expected youtube source kind" >&2; exit 1; }
+revision=$(jq -r .revision "$VALIDATION_TMP/youtube.json")
+curl --silent --fail --request DELETE --header "If-Match: \"$revision\"" "$TEST_BASE_URL/api/v1/queue" >/dev/null
 
 malformed=$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{' "$TEST_BASE_URL/api/v1/queue/items")
 [ "$malformed" = 400 ] || { echo "malformed JSON: expected 400, got $malformed" >&2; exit 1; }
