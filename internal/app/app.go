@@ -55,6 +55,7 @@ type requestMetadataKey struct{}
 type requestMetadata struct {
 	userID   string
 	username string
+	route    string
 }
 
 func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (http.Handler, error) {
@@ -114,9 +115,10 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("POST /api/v1/playback/stop", a.stopPlayback)
 	mux.HandleFunc("POST /api/v1/playback/seek", a.seekPlayback)
 	mux.HandleFunc("PUT /api/v1/playback/volume", a.setPlaybackVolume)
+	mux.HandleFunc("GET /api/v1/events", a.events)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
-	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(mux)))), nil
+	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(captureRoute(mux))))), nil
 }
 
 func (a *application) live(w http.ResponseWriter, _ *http.Request) {
@@ -158,6 +160,17 @@ type responseRecorder struct {
 	size   int
 }
 
+func (r *responseRecorder) Flush() {
+	if r.status == 0 {
+		r.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (r *responseRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 func (r *responseRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
@@ -190,7 +203,7 @@ func requestLogging(logger *slog.Logger, next http.Handler) http.Handler {
 		attributes := []any{
 			"method", r.Method,
 			"path", r.URL.Path,
-			"route", r.Pattern,
+			"route", metadata.route,
 			"status", recorder.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 			"response_bytes", recorder.size,
@@ -200,6 +213,15 @@ func requestLogging(logger *slog.Logger, next http.Handler) http.Handler {
 			attributes = append(attributes, "user_id", metadata.userID, "username", metadata.username)
 		}
 		requestLogger.Info("http request", attributes...)
+	})
+}
+
+func captureRoute(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		if metadata, ok := r.Context().Value(requestMetadataKey{}).(*requestMetadata); ok {
+			metadata.route = r.Pattern
+		}
 	})
 }
 

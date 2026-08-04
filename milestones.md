@@ -190,17 +190,17 @@ Acceptance criteria:
 
 Goal: make the jukebox comfortable to operate from phones and computers.
 
-- [ ] Build a responsive now-playing and shared-queue interface.
-- [ ] Add direct stream/radio URL submission.
-- [ ] Add playback controls appropriate to the current access mode.
-- [ ] Push queue and playback changes using Server-Sent Events or WebSockets.
-- [ ] Reconnect automatically and reconcile missed revisions.
-- [ ] Show anonymous versus signed-in attribution.
-- [ ] Add the optional login flow, unknown-user creation transition, password
+- [x] Build a responsive now-playing and shared-queue interface.
+- [x] Add direct stream/radio URL submission.
+- [x] Add playback controls appropriate to the current access mode.
+- [x] Push queue and playback changes using Server-Sent Events or WebSockets.
+- [x] Reconnect automatically and reconcile missed revisions.
+- [x] Show anonymous versus signed-in attribution.
+- [x] Add the optional login flow, unknown-user creation transition, password
       confirmation, immediate login, and logout.
-- [ ] Keep anonymous use obvious; never force the login screen in open mode.
-- [ ] Add useful empty, loading, buffering, offline, and error states.
-- [ ] Meet basic keyboard, screen-reader, contrast, and touch-target needs.
+- [x] Keep anonymous use obvious; never force the login screen in open mode.
+- [x] Add useful empty, loading, buffering, offline, and error states.
+- [x] Meet basic keyboard, screen-reader, contrast, and touch-target needs.
 
 Acceptance criteria:
 
@@ -358,8 +358,11 @@ milestone is revised:
 - **Milestone 4:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04, including finite HTTP audio, KFJC live radio, controls, and mpv
   crash recovery.
-- **Current milestone:** Milestone 5 — Real-time household web interface
-- **Next feature milestone:** Milestone 6 — Favorites, stations, and personal library
+- **Milestone 5:** Complete and verified with automated tests plus desktop,
+  390px-phone, multi-client SSE, anonymous, and account-flow browser testing on
+  2026-08-04.
+- **Current milestone:** Milestone 6 — Favorites, stations, and personal library
+- **Next feature milestone:** Milestone 7 — init.d deployment and operations
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10

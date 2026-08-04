@@ -3,16 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11130f">
   <title>House Jukebox</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="House Jukebox home">
+      <span class="brand-mark" aria-hidden="true">♪</span>
+      <span>House Jukebox</span>
+    </a>
+    <div class="header-actions">
+      <span id="connection-status" class="connection" role="status"><span aria-hidden="true"></span> Connecting</span>
+      <button id="account-button" class="button button-quiet" type="button">Log in</button>
+    </div>
+  </header>
+
   <main>
-    <p class="eyebrow">RASPBERRY PI PLAYER</p>
-    <h1>House Jukebox</h1>
-    <p class="lede">The player is online. Queue and playback controls are coming next.</p>
-    <section id="status" aria-live="polite">Checking player status…</section>
+    <section class="now-playing" aria-labelledby="now-playing-heading">
+      <div class="section-label"><span></span> NOW PLAYING</div>
+      <div class="now-grid">
+        <div class="artwork" aria-hidden="true"><span>♫</span></div>
+        <div class="track-details">
+          <h1 id="now-playing-heading">Nothing playing</h1>
+          <p id="now-source">Add a radio stream or audio URL to get started.</p>
+          <div class="progress-wrap">
+            <progress id="playback-progress" max="1" value="0" aria-label="Playback progress"></progress>
+            <div class="times"><span id="position">0:00</span><span id="duration">Live</span></div>
+          </div>
+          <div class="player-controls" aria-label="Playback controls">
+            <button id="pause-button" class="round-control" type="button" aria-label="Pause">Ⅱ</button>
+            <button id="resume-button" class="round-control primary" type="button" aria-label="Resume playback">▶</button>
+            <button id="skip-button" class="round-control" type="button" aria-label="Skip current item">›|</button>
+            <label class="volume-control"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="100" aria-label="Volume"><output id="volume-output">100</output></label>
+          </div>
+          <p id="playback-state" class="subtle" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="add-card" aria-labelledby="add-heading">
+      <div>
+        <div class="section-label dark">ADD SOMETHING</div>
+        <h2 id="add-heading">What should we hear next?</h2>
+        <p>Paste a direct audio or internet-radio URL. No account required.</p>
+      </div>
+      <form id="add-form" class="add-form">
+        <label><span>Stream URL</span><input id="stream-url" name="url" type="url" required placeholder="https://netcast.kfjc.org/…" autocomplete="url"></label>
+        <label><span>Your name <em>(optional)</em></span><input id="display-name" name="display_name" maxlength="64" placeholder="Anonymous housemate" autocomplete="nickname"></label>
+        <button class="button button-primary" type="submit">Add to queue <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+
+    <section class="queue-section" aria-labelledby="queue-heading">
+      <div class="queue-heading-row">
+        <div><div class="section-label dark">UP NEXT</div><h2 id="queue-heading">The house queue</h2></div>
+        <button id="clear-button" class="button button-quiet dark-text" type="button">Clear queue</button>
+      </div>
+      <div id="queue-empty" class="empty-state"><span aria-hidden="true">♬</span><h3>The queue is quiet</h3><p>Add a stream above and it will start playing on the living-room speaker.</p></div>
+      <ol id="queue-list" class="queue-list" aria-live="polite"></ol>
+    </section>
   </main>
+
+  <footer><span>Playing on the living-room Raspberry Pi</span><span id="footer-identity">Browsing anonymously</span></footer>
+  <div id="toast" class="toast" role="alert" aria-live="assertive" hidden></div>
+
+  <dialog id="auth-dialog" aria-labelledby="auth-title">
+    <button id="auth-close" class="dialog-close" type="button" aria-label="Close">×</button>
+    <div class="dialog-mark" aria-hidden="true">♪</div>
+    <form id="login-form">
+      <p class="section-label dark">OPTIONAL ACCOUNT</p>
+      <h2 id="auth-title">Make this jukebox yours</h2>
+      <p>Accounts save your identity and, soon, your favorite stations. Anonymous queueing always remains available in open mode.</p>
+      <label><span>Username</span><input id="login-username" required minlength="2" maxlength="32" autocomplete="username"></label>
+      <label><span>Password</span><input id="login-password" type="password" required minlength="8" maxlength="256" autocomplete="current-password"></label>
+      <p id="login-error" class="form-error" role="alert"></p>
+      <button class="button button-primary full" type="submit">Continue</button>
+    </form>
+    <form id="signup-form" hidden>
+      <p class="section-label dark">NEW ACCOUNT</p>
+      <h2>Confirm your password</h2>
+      <p><strong id="signup-username"></strong> is available. Enter the same password again to create the account and log in immediately.</p>
+      <label><span>Password again</span><input id="signup-confirmation" type="password" required minlength="8" maxlength="256" autocomplete="new-password"></label>
+      <p id="signup-error" class="form-error" role="alert"></p>
+      <button class="button button-primary full" type="submit">Create account</button>
+      <button id="signup-back" class="button button-quiet full dark-text" type="button">Use a different username</button>
+    </form>
+  </dialog>
+
   <script src="/app.js"></script>
 </body>
 </html>

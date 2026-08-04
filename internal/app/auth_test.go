@@ -93,6 +93,9 @@ func TestUnknownLoginSignupSessionCSRFAndAttribution(t *testing.T) {
 	if current.Code != http.StatusOK || !bytes.Contains(current.Body.Bytes(), []byte(`"authenticated":true`)) {
 		t.Fatalf("current session: %d %s", current.Code, current.Body.String())
 	}
+	if !bytes.Contains(logs.Bytes(), []byte(`"route":"GET /api/v1/auth/session"`)) || !bytes.Contains(logs.Bytes(), []byte(`"username":"HouseDJ"`)) {
+		t.Fatalf("authenticated request log missing route or identity: %s", logs.String())
+	}
 	withoutCSRF := authRequest(t, handler, http.MethodPost, "/api/v1/queue/items", `{"url":"https://example.com/member.mp3"}`, cookies, "")
 	if withoutCSRF.Code != http.StatusForbidden {
 		t.Fatalf("missing CSRF: %d", withoutCSRF.Code)
