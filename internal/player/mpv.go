@@ -36,6 +36,7 @@ type MPV struct {
 	state     State
 	readyOnce sync.Once
 	ready     chan error
+	done      chan struct{}
 }
 type mpvMessage struct {
 	Event     string `json:"event"`
@@ -56,7 +57,7 @@ func NewMPV(logger *slog.Logger, config MPVConfig) *MPV {
 	if config.CacheSeconds <= 0 {
 		config.CacheSeconds = 20
 	}
-	return &MPV{logger: logger, config: config, events: make(chan Event, 128), pending: make(map[int64]chan mpvMessage), state: State{Status: "idle", Volume: 100}, ready: make(chan error, 1)}
+	return &MPV{logger: logger, config: config, events: make(chan Event, 128), pending: make(map[int64]chan mpvMessage), state: State{Status: "idle", Volume: 100}, ready: make(chan error, 1), done: make(chan struct{})}
 }
 
 func (m *MPV) Start(parent context.Context) error {
@@ -79,6 +80,7 @@ func (m *MPV) Start(parent context.Context) error {
 }
 
 func (m *MPV) supervise() {
+	defer close(m.done)
 	delay := time.Second
 	for m.ctx.Err() == nil {
 		err := m.runOnce()
@@ -341,6 +343,12 @@ func (m *MPV) Close() error {
 	m.mu.Unlock()
 	if cancel != nil {
 		cancel()
+		select {
+		case <-m.done:
+			return nil
+		case <-time.After(5 * time.Second):
+			return errors.New("mpv shutdown timed out")
+		}
 	}
 	return nil
 }
