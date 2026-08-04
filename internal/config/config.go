@@ -25,6 +25,7 @@ type Config struct {
 	AudioDevice   string
 	CacheSeconds  int
 	PlayerRetries int
+	HistoryDays   int
 }
 
 func Default() Config {
@@ -48,6 +49,7 @@ func Default() Config {
 		AudioDevice:   env("RASPI_MEDIA_PLAYER_AUDIO_DEVICE", "auto"),
 		CacheSeconds:  envInt("RASPI_MEDIA_PLAYER_CACHE_SECONDS", 20),
 		PlayerRetries: envNonnegativeInt("RASPI_MEDIA_PLAYER_PLAYER_RETRIES", 1),
+		HistoryDays:   envNonnegativeInt("RASPI_MEDIA_PLAYER_HISTORY_DAYS", 90),
 	}
 }
 

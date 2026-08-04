@@ -15,6 +15,7 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/app"
 	"github.com/dylanknuth/raspi-media-player/internal/config"
 	"github.com/dylanknuth/raspi-media-player/internal/database"
+	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/logging"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	"github.com/dylanknuth/raspi-media-player/internal/player"
@@ -48,6 +49,7 @@ func main() {
 	flag.StringVar(&cfg.AudioDevice, "audio-device", cfg.AudioDevice, "mpv audio device or auto")
 	flag.IntVar(&cfg.CacheSeconds, "cache-seconds", cfg.CacheSeconds, "network media cache duration")
 	flag.IntVar(&cfg.PlayerRetries, "player-retries", cfg.PlayerRetries, "media retries before marking an item failed")
+	flag.IntVar(&cfg.HistoryDays, "history-days", cfg.HistoryDays, "playback history retention in days; zero disables pruning")
 	flag.Parse()
 
 	logger, err := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
@@ -68,6 +70,7 @@ func main() {
 	defer stop()
 
 	var playbackController *playback.Controller
+	libraryStore := library.NewStore(db, time.Duration(cfg.HistoryDays)*24*time.Hour)
 	if cfg.PlayerEnabled {
 		var output player.Player
 		switch cfg.PlayerBackend {
@@ -79,7 +82,7 @@ func main() {
 			logger.Error("invalid player backend", "player_backend", cfg.PlayerBackend)
 			os.Exit(2)
 		}
-		playbackController = playback.New(logger, queuepkg.NewStore(db), output, playback.Options{RetryLimit: cfg.PlayerRetries})
+		playbackController = playback.New(logger, queuepkg.NewStore(db), output, playback.Options{RetryLimit: cfg.PlayerRetries, History: libraryStore})
 		if err := playbackController.Start(ctx); err != nil {
 			logger.Error("playback initialization failed", "error", err)
 			os.Exit(1)
@@ -92,7 +95,7 @@ func main() {
 	}
 
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController})
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore})
 	if err != nil {
 		logger.Error("application initialization failed", "error", err)
 		os.Exit(2)

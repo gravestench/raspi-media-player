@@ -58,11 +58,14 @@ in [docs/authentication.md](docs/authentication.md).
 Player configuration, queue advancement, and playback controls are documented in
 [docs/playback.md](docs/playback.md).
 
+Household stations, personal favorites and playlists, search, and playback
+history are documented in [docs/library.md](docs/library.md).
+
 ## Daemon deployment
 
-Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi
-validation are scheduled in Milestone 7; do not treat the current script as a
-finished production installer yet.
+The init.d service assets and Raspberry Pi deployment helper live in `deploy/`
+and `scripts/`. Full install, upgrade, backup, and uninstall operations are
+completed in Milestone 7.
 
 The current integration target is a 64-bit Debian 12 Raspberry Pi. Build and
 deploy to it with:

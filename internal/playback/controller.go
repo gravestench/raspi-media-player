@@ -25,16 +25,29 @@ type Controller struct {
 	retryLimit int
 	retries    map[string]int
 	retryAfter time.Time
+	history    HistoryRecorder
 }
 
-type Options struct{ RetryLimit int }
+type HistoryRecorder interface {
+	RecordStarted(context.Context, string, string, string, string) (string, error)
+	RecordFinished(context.Context, string, string, string, error) error
+}
+
+type Options struct {
+	RetryLimit int
+	History    HistoryRecorder
+}
 
 func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, options ...Options) *Controller {
 	retryLimit := 0
 	if len(options) > 0 && options[0].RetryLimit > 0 {
 		retryLimit = options[0].RetryLimit
 	}
-	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int)}
+	var history HistoryRecorder
+	if len(options) > 0 {
+		history = options[0].History
+	}
+	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int), history: history}
 }
 
 func (c *Controller) Start(parent context.Context) error {
@@ -126,6 +139,11 @@ func (c *Controller) reconcile() {
 	c.mu.Lock()
 	c.loadedID = next.ID
 	c.mu.Unlock()
+	if c.history != nil {
+		if _, err := c.history.RecordStarted(c.ctx, next.ID, next.Source.Kind, next.Source.URL, next.Submitter.UserID); err != nil {
+			c.logger.Error("record playback history start failed", "error", err)
+		}
+	}
 	c.logger.Info("playback item loaded", "queue_item_id", next.ID, "source_kind", next.Source.Kind)
 }
 
@@ -168,6 +186,11 @@ func (c *Controller) handleEvent(event player.Event) {
 			c.mu.Lock()
 			delete(c.retries, loadedID)
 			c.mu.Unlock()
+			if c.history != nil {
+				if err := c.history.RecordFinished(c.ctx, loadedID, event.State.Title, "completed", nil); err != nil {
+					c.logger.Error("record playback completion failed", "error", err)
+				}
+			}
 			if err := c.queue.FinishCurrent(c.ctx, loadedID, nil); err != nil && !errors.Is(err, queuepkg.ErrNotFound) {
 				c.logger.Error("advance completed item failed", "error", err)
 			}
@@ -196,6 +219,11 @@ func (c *Controller) handleEvent(event player.Event) {
 			}
 			delete(c.retries, loadedID)
 			c.mu.Unlock()
+			if c.history != nil {
+				if err := c.history.RecordFinished(c.ctx, loadedID, event.State.Title, "failed", failure); err != nil {
+					c.logger.Error("record playback failure failed", "error", err)
+				}
+			}
 			if err := c.queue.FinishCurrent(c.ctx, loadedID, failure); err != nil && !errors.Is(err, queuepkg.ErrNotFound) {
 				c.logger.Error("mark failed item failed", "error", err)
 			}

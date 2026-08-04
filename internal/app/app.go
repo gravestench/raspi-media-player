@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/auth"
+	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
 )
@@ -36,6 +37,7 @@ type application struct {
 	auth        *auth.Store
 	authLimiter *rateLimiter
 	playback    *playback.Controller
+	library     *library.Store
 }
 
 type Options struct {
@@ -48,6 +50,7 @@ type Options struct {
 	ArgonMemory     uint32
 	ArgonIterations uint32
 	Playback        *playback.Controller
+	Library         *library.Store
 }
 
 type requestLoggerKey struct{}
@@ -85,6 +88,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 		}
 		opts.SecureCookie = provided.SecureCookie
 		opts.Playback = provided.Playback
+		opts.Library = provided.Library
 	}
 	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
 		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
@@ -92,7 +96,10 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	params := auth.DefaultPasswordParams()
 	params.Memory = opts.ArgonMemory
 	params.Iterations = opts.ArgonIterations
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback}
+	if opts.Library == nil {
+		opts.Library = library.NewStore(db, 90*24*time.Hour)
+	}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
@@ -116,6 +123,18 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("POST /api/v1/playback/seek", a.seekPlayback)
 	mux.HandleFunc("PUT /api/v1/playback/volume", a.setPlaybackVolume)
 	mux.HandleFunc("GET /api/v1/events", a.events)
+	mux.HandleFunc("GET /api/v1/stations", a.listStations)
+	mux.HandleFunc("POST /api/v1/stations", a.createStation)
+	mux.HandleFunc("DELETE /api/v1/stations/{id}", a.deleteStation)
+	mux.HandleFunc("PUT /api/v1/stations/{id}/favorite", a.favoriteStation)
+	mux.HandleFunc("GET /api/v1/favorites", a.listFavorites)
+	mux.HandleFunc("GET /api/v1/playlists", a.listPlaylists)
+	mux.HandleFunc("POST /api/v1/playlists", a.createPlaylist)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}", a.deletePlaylist)
+	mux.HandleFunc("POST /api/v1/playlists/{id}/items", a.addPlaylistItem)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}/items/{itemID}", a.removePlaylistItem)
+	mux.HandleFunc("GET /api/v1/history", a.listHistory)
+	mux.HandleFunc("GET /api/v1/library/search", a.searchLibrary)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
 	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(captureRoute(mux))))), nil

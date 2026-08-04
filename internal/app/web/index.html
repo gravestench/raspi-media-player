@@ -55,6 +55,28 @@
       </form>
     </section>
 
+    <section class="library-section" aria-labelledby="stations-heading">
+      <div class="library-heading">
+        <div><div class="section-label dark">YOUR SOUND SHELF</div><h2 id="stations-heading">Stations &amp; saved music</h2></div>
+        <label class="search-label"><span>Search library</span><input id="library-search" type="search" placeholder="Stations, playlists, history…"></label>
+      </div>
+      <div id="station-list" class="station-grid" aria-live="polite"></div>
+      <div id="personal-library" class="personal-library" hidden>
+        <form id="station-form" class="compact-form">
+          <h3>Save a station</h3>
+          <label><span>Name</span><input name="name" required maxlength="80" placeholder="Kitchen radio"></label>
+          <label><span>Stream URL</span><input name="stream_url" type="url" required placeholder="https://…"></label>
+          <button class="button button-primary" type="submit">Save station</button>
+        </form>
+        <div class="playlist-panel">
+          <form id="playlist-form" class="inline-form"><label><span>New playlist</span><input name="name" required maxlength="80" placeholder="Sunday morning"></label><button class="button button-primary" type="submit">Create</button></form>
+          <div id="playlist-list" class="playlist-list"></div>
+        </div>
+      </div>
+      <p id="library-login-note" class="library-note">Log in if you’d like to favorite stations and keep personal playlists. Listening stays anonymous-friendly.</p>
+      <details class="history-panel"><summary>Recent listening history</summary><ol id="history-list"></ol></details>
+    </section>
+
     <section class="queue-section" aria-labelledby="queue-heading">
       <div class="queue-heading-row">
         <div><div class="section-label dark">UP NEXT</div><h2 id="queue-heading">The house queue</h2></div>
@@ -74,7 +96,7 @@
     <form id="login-form">
       <p class="section-label dark">OPTIONAL ACCOUNT</p>
       <h2 id="auth-title">Make this jukebox yours</h2>
-      <p>Accounts save your identity and, soon, your favorite stations. Anonymous queueing always remains available in open mode.</p>
+      <p>Accounts save your identity, favorite stations, and personal playlists. Anonymous queueing always remains available in open mode.</p>
       <label><span>Username</span><input id="login-username" required minlength="2" maxlength="32" autocomplete="username"></label>
       <label><span>Password</span><input id="login-password" type="password" required minlength="8" maxlength="256" autocomplete="current-password"></label>
       <p id="login-error" class="form-error" role="alert"></p>

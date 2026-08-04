@@ -1,4 +1,4 @@
-const state = { snapshot: null, session: null, pendingSignup: null, source: null };
+const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [] };
 const $ = selector => document.querySelector(selector);
 
 function cookie(name) {
@@ -83,7 +83,7 @@ function connectEvents() {
 }
 
 async function loadSession() {
-  try { const result = await api('/api/v1/auth/session'); state.session = result.authenticated ? result.session : null; renderIdentity(); } catch { state.session = null; renderIdentity(); }
+  try { const result = await api('/api/v1/auth/session'); state.session = result.authenticated ? result.session : null; renderIdentity(); await loadLibrary(); } catch { state.session = null; renderIdentity(); await loadLibrary(); }
 }
 
 function renderIdentity() {
@@ -93,6 +93,51 @@ function renderIdentity() {
 }
 
 function resetAuth() { $('#login-form').hidden = false; $('#signup-form').hidden = true; $('#login-error').textContent = ''; $('#signup-error').textContent = ''; state.pendingSignup = null; }
+
+async function loadLibrary() {
+  const query = $('#library-search').value.trim(); const suffix = query ? `?q=${encodeURIComponent(query)}` : '';
+  try {
+    const stations = await api(`/api/v1/stations${suffix}`); state.stations = stations.stations || [];
+    const history = await api(`/api/v1/history${suffix}`); renderHistory(history.history || []);
+    if (state.session) { const playlists = await api(`/api/v1/playlists${suffix}`); state.playlists = playlists.playlists || []; }
+    else state.playlists = [];
+    renderLibrary();
+  } catch (error) { showToast(error.message); }
+}
+
+function renderLibrary() {
+  const stationList = $('#station-list'); stationList.replaceChildren();
+  state.stations.forEach(station => {
+    const card = document.createElement('article'); card.className = 'station-card';
+    const icon = document.createElement('span'); icon.className = 'station-icon'; icon.textContent = '◉'; icon.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('div'); copy.className = 'station-copy'; const name = document.createElement('strong'); name.textContent = station.name; const url = document.createElement('small'); url.textContent = station.stream_url; copy.append(name, url);
+    const actions = document.createElement('div'); actions.className = 'station-actions';
+    actions.append(actionButton('▶', `Play ${station.name}`, () => queueStation(station)));
+    actions.lastChild.classList.add('play-station');
+    if (state.session) actions.append(actionButton(station.favorite ? '★' : '☆', `${station.favorite ? 'Remove' : 'Add'} ${station.name} ${station.favorite ? 'from' : 'to'} favorites`, () => toggleFavorite(station)));
+    if (station.owner_user_id) actions.append(actionButton('×', `Delete ${station.name}`, () => deleteStation(station)));
+    card.append(icon, copy, actions); stationList.append(card);
+  });
+  if (!state.stations.length) { const note = document.createElement('p'); note.className = 'library-note'; note.textContent = 'No stations match this search.'; stationList.append(note); }
+  $('#personal-library').hidden = !state.session; $('#library-login-note').hidden = Boolean(state.session);
+  const playlists = $('#playlist-list'); playlists.replaceChildren();
+  state.playlists.forEach(playlist => {
+    const card = document.createElement('div'); card.className = 'playlist-card'; const copy = document.createElement('span'); const strong = document.createElement('strong'); strong.textContent = playlist.name; const count = document.createElement('small'); count.textContent = `${playlist.items.length} item${playlist.items.length === 1 ? '' : 's'}`; copy.append(strong, document.createElement('br'), count);
+    const actions = document.createElement('div'); actions.className = 'item-actions'; if (playlist.items.length) actions.append(actionButton('▶', `Queue ${playlist.name}`, () => queuePlaylist(playlist))); actions.append(actionButton('×', `Delete ${playlist.name}`, () => deletePlaylist(playlist))); card.append(copy, actions); playlists.append(card);
+  });
+}
+
+function renderHistory(history) {
+  const list = $('#history-list'); list.replaceChildren();
+  history.slice(0, 20).forEach(item => { const row = document.createElement('li'); const title = document.createElement('strong'); title.textContent = item.title || sourceLabel(item.source_url); row.append(title, ` · ${item.outcome}`); list.append(row); });
+  if (!history.length) { const row = document.createElement('li'); row.textContent = 'Nothing has played yet.'; list.append(row); }
+}
+
+async function queueStation(station) { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url:station.stream_url, display_name:state.session ? '' : 'Station shelf' }) })); showToast(`${station.name} added to the queue.`); } catch (error) { showToast(error.message); } }
+async function toggleFavorite(station) { try { await api(`/api/v1/stations/${station.id}/favorite`, { method:'PUT', body:JSON.stringify({ favorite:!station.favorite }) }); await loadLibrary(); } catch (error) { showToast(error.message); } }
+async function deleteStation(station) { try { await api(`/api/v1/stations/${station.id}`, { method:'DELETE' }); await loadLibrary(); } catch (error) { showToast(error.message); } }
+async function deletePlaylist(playlist) { try { await api(`/api/v1/playlists/${playlist.id}`, { method:'DELETE' }); await loadLibrary(); } catch (error) { showToast(error.message); } }
+async function queuePlaylist(playlist) { for (const item of playlist.items) { try { await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url:item.source_url }) }); } catch (error) { showToast(error.message); break; } } await refresh(); }
 
 $('#add-form').addEventListener('submit', async event => {
   event.preventDefault(); const form = new FormData(event.currentTarget);
@@ -106,20 +151,24 @@ $('#clear-button').addEventListener('click', async () => { try { render(await ap
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });
 $('#volume').addEventListener('change', async event => { try { render(await api('/api/v1/playback/volume', { method: 'PUT', body: JSON.stringify({ volume: Number(event.target.value) }) })); } catch (error) { showToast(error.message); } });
 
-$('#account-button').addEventListener('click', async () => { if (state.session) { try { await api('/api/v1/auth/logout', { method: 'POST' }); state.session = null; renderIdentity(); showToast('Logged out. Anonymous queueing is still available.'); } catch (error) { showToast(error.message); } return; } resetAuth(); $('#auth-dialog').showModal(); $('#login-username').focus(); });
+$('#account-button').addEventListener('click', async () => { if (state.session) { try { await api('/api/v1/auth/logout', { method: 'POST' }); state.session = null; renderIdentity(); await loadLibrary(); showToast('Logged out. Anonymous queueing is still available.'); } catch (error) { showToast(error.message); } return; } resetAuth(); $('#auth-dialog').showModal(); $('#login-username').focus(); });
 $('#auth-close').addEventListener('click', () => $('#auth-dialog').close());
 $('#signup-back').addEventListener('click', resetAuth);
 $('#login-form').addEventListener('submit', async event => {
   event.preventDefault(); const username = $('#login-username').value; const password = $('#login-password').value; $('#login-error').textContent = '';
   try { const result = await api('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     if (result.status === 'account_creation_required') { state.pendingSignup = { username: result.username, password }; $('#signup-username').textContent = result.username; $('#login-form').hidden = true; $('#signup-form').hidden = false; $('#signup-confirmation').value = ''; $('#signup-confirmation').focus(); return; }
-    state.session = result.session; $('#auth-dialog').close(); renderIdentity(); showToast(`Welcome back, ${result.session.user.username}.`);
+    state.session = result.session; $('#auth-dialog').close(); renderIdentity(); await loadLibrary(); showToast(`Welcome back, ${result.session.user.username}.`);
   } catch (error) { $('#login-error').textContent = error.message; }
 });
 $('#signup-form').addEventListener('submit', async event => {
   event.preventDefault(); $('#signup-error').textContent = ''; if (!state.pendingSignup) return;
-  try { const result = await api('/api/v1/auth/signup', { method: 'POST', body: JSON.stringify({ username: state.pendingSignup.username, password: state.pendingSignup.password, password_confirmation: $('#signup-confirmation').value }) }); state.session = result.session; state.pendingSignup = null; $('#auth-dialog').close(); renderIdentity(); showToast(`Account created. Welcome, ${result.session.user.username}.`); }
+  try { const result = await api('/api/v1/auth/signup', { method: 'POST', body: JSON.stringify({ username: state.pendingSignup.username, password: state.pendingSignup.password, password_confirmation: $('#signup-confirmation').value }) }); state.session = result.session; state.pendingSignup = null; $('#auth-dialog').close(); renderIdentity(); await loadLibrary(); showToast(`Account created. Welcome, ${result.session.user.username}.`); }
   catch (error) { $('#signup-error').textContent = error.message; }
 });
+
+$('#station-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await api('/api/v1/stations', { method:'POST', body:JSON.stringify({ name:form.get('name'), stream_url:form.get('stream_url') }) }); event.currentTarget.reset(); await loadLibrary(); showToast('Station saved.'); } catch (error) { showToast(error.message); } });
+$('#playlist-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await api('/api/v1/playlists', { method:'POST', body:JSON.stringify({ name:form.get('name') }) }); event.currentTarget.reset(); await loadLibrary(); showToast('Playlist created.'); } catch (error) { showToast(error.message); } });
+$('#library-search').addEventListener('input', () => { clearTimeout(loadLibrary.timer); loadLibrary.timer = setTimeout(loadLibrary, 250); });
 
 refresh(); loadSession(); connectEvents();

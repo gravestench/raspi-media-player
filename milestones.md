@@ -213,14 +213,14 @@ Acceptance criteria:
 Goal: give optional accounts persistent personalization while retaining shared
 playback.
 
-- [ ] Add a curated household station directory usable by anonymous users.
-- [ ] Add administrator-configured default stations, including KFJC.
-- [ ] Allow signed-in users to save personal stations and favorites.
-- [ ] Add named playlists composed of supported source references.
-- [ ] Add playback/queue history with configurable retention.
-- [ ] Add search and filtering across stations, favorites, playlists, and recent
+- [x] Add a curated household station directory usable by anonymous users.
+- [x] Add administrator-configured default stations, including KFJC.
+- [x] Allow signed-in users to save personal stations and favorites.
+- [x] Add named playlists composed of supported source references.
+- [x] Add playback/queue history with configurable retention.
+- [x] Add search and filtering across stations, favorites, playlists, and recent
       items.
-- [ ] Define ownership and visibility rules for personal and household items.
+- [x] Define ownership and visibility rules for personal and household items.
 
 Acceptance criteria:
 
@@ -350,8 +350,7 @@ milestone is revised:
 
 ## Current status
 
-- **Milestone 0:** Foundation implementation complete; Raspberry Pi deployment
-  validation remains pending.
+- **Milestone 0:** Complete and verified locally and on the Raspberry Pi.
 - **Milestone 1:** Complete and verified on 2026-08-04.
 - **Milestone 2:** Complete and verified on 2026-08-04.
 - **Milestone 3:** Complete and verified on 2026-08-04.
@@ -361,8 +360,10 @@ milestone is revised:
 - **Milestone 5:** Complete and verified with automated tests plus desktop,
   390px-phone, multi-client SSE, anonymous, and account-flow browser testing on
   2026-08-04.
-- **Current milestone:** Milestone 6 — Favorites, stations, and personal library
-- **Next feature milestone:** Milestone 7 — init.d deployment and operations
+- **Milestone 6:** Complete and verified locally on 2026-08-04; Raspberry Pi
+  deployment validation is the final boundary check.
+- **Current milestone:** Milestone 7 — init.d deployment and operations
+- **Next feature milestone:** Milestone 8 — Complete API regression suite
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
