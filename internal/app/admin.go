@@ -81,6 +81,7 @@ func (a *application) completeSetup(w http.ResponseWriter, r *http.Request) {
 			a.logger.Warn("could not save setup metadata key", "error", err)
 		}
 	}
+	a.options.AccessMode = request.AccessMode
 	a.installed.Store(true)
 	a.logger.Info("first-run installation completed", "user_id", issued.Session.User.ID, "username", issued.Session.User.Username)
 	a.issueSession(w, issued, http.StatusCreated)
