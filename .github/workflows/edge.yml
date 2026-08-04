@@ -1,0 +1,54 @@
+name: Edge release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edge-release
+  cancel-in-progress: true
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install regression dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Run regression suite
+        run: |
+          test -z "$(gofmt -l cmd internal)"
+          go vet ./...
+          go test -race ./...
+          ./scripts/test-all.sh
+      - name: Build edge bundle
+        env:
+          COMMIT: ${{ github.sha }}
+        run: |
+          VERSION="edge-$(date -u +%Y%m%d)-${GITHUB_SHA::12}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          ./scripts/build-release.sh "$VERSION"
+          cd dist
+          sha256sum ./*.tar.gz > checksums.txt
+      - name: Replace rolling edge prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete edge --yes --cleanup-tag || true
+          git tag -f edge "$GITHUB_SHA"
+          git push origin refs/tags/edge --force
+          gh release create edge dist/*.tar.gz dist/checksums.txt \
+            --verify-tag --prerelease --latest=false \
+            --title "Bleeding edge ($VERSION)" \
+            --notes "Automated build of commit $GITHUB_SHA from main. This build may be unstable and is replaced after the next successful main build."

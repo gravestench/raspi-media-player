@@ -6,6 +6,10 @@ phones and computers on the local network provide the shared remote control.
 The project is under active development. See [milestones.md](milestones.md) for
 the roadmap and current status.
 
+Stable tags and rolling bleeding-edge builds are published automatically as
+installable ARM64 archives. See [docs/releases.md](docs/releases.md) for release
+channels, verification, and installation.
+
 ## Requirements
 
 - Go 1.24 or newer for development
