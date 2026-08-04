@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -252,18 +251,6 @@ func validateSetting(key, value string) error {
 	case "auto_queue_artists", "auto_queue_genres":
 		if len(value) > 1000 {
 			return errors.New("auto-queue seeds must be 1000 characters or fewer")
-		}
-	case "default_radio_url":
-		if value == "" {
-			return nil
-		}
-		parsed, err := url.ParseRequestURI(value)
-		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil {
-			return errors.New("default radio must be an absolute HTTP(S) URL without credentials")
-		}
-	case "default_radio_name":
-		if len(value) > 120 {
-			return errors.New("default radio name must be 120 characters or fewer")
 		}
 	case "metadata_enabled", "vote_enabled", "youtube_search_enabled", "secure_cookie", "player_enabled", "auto_queue_enabled":
 		if value != "true" && value != "false" {

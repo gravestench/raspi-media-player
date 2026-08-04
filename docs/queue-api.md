@@ -4,9 +4,9 @@ The shared queue is available without authentication in the default open mode.
 All responses are JSON. A queue snapshot contains a monotonic `revision`, ordered
 `items`, and `playback` state. The same revision is returned as an `ETag`.
 
-An administrator-configured fallback radio has `default: true`. It is pinned
-after requested items and cannot be removed, skipped, or moved. Clearing removes
-requested items but preserves the fallback; clearing the Admin URL disables it.
+Saved radio stations appear as ordinary queue items with `radio: true`. They can
+be moved, removed, skipped, and voted on like any other item. Their changing live
+track title continues to drive artwork, artist information, and genre enrichment.
 
 ## Endpoints
 

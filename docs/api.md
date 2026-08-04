@@ -45,12 +45,12 @@ behavior and fetch a fresh snapshot after a prolonged disconnect.
 
 | Method | Route | Body / purpose |
 | --- | --- | --- |
-| GET | `/api/v1/queue` | complete queue/playback/vote snapshot; fallback items have `default: true` |
+| GET | `/api/v1/queue` | complete queue/playback/vote snapshot; saved streams have `radio: true` |
 | POST | `/api/v1/queue/items` | `url`, optional `display_name`, optional `title` |
 | DELETE | `/api/v1/queue/items/{id}` | remove an owned item or vote to remove another listener's item; requires revision |
 | DELETE | `/api/v1/queue/items/{id}/removal-vote` | withdraw the current listener's removal vote |
 | PUT | `/api/v1/queue/order` | `item_ids`; requires revision |
-| DELETE | `/api/v1/queue` | clear requested items while preserving the default radio; requires revision |
+| DELETE | `/api/v1/queue` | clear all items; requires revision |
 | POST | `/api/v1/queue/skip` | cast vote or perform allowed skip |
 | DELETE | `/api/v1/queue/skip` | withdraw current listener's vote |
 | POST | `/api/v1/playback/pause` | pause current item |
@@ -73,6 +73,13 @@ Duplicate active source URLs and full queues return explicit errors. See
 
 Modes are `active_users`, `specific_seeds`, and `related_last`. Omitted fields
 are unchanged. See [auto-queue.md](auto-queue.md).
+
+## Account cleanup
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| DELETE | `/api/v1/account/likes?source_url=…&title=…` | remove one liked track from the signed-in user's profile |
+| DELETE | `/api/v1/account/history/{id}` | disassociate one play from the signed-in user's profile while retaining household history |
 
 ## Authentication and sessions
 

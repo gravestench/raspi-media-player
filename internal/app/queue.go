@@ -105,10 +105,6 @@ func (a *application) removeQueueItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "queue_item_not_found", "queue item was not found")
 		return
 	}
-	if target.Default {
-		writeError(w, http.StatusConflict, "default_radio_protected", "the default radio is managed from Admin settings")
-		return
-	}
 	identity := identityFromContext(r.Context())
 	owned := identity != nil && target.Submitter.UserID == identity.Session.User.ID
 	admin := identity != nil && identity.Session.User.IsAdmin
@@ -260,8 +256,6 @@ func (a *application) queueError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, http.StatusConflict, "revision_conflict", "the queue changed; refresh and try again")
 	case errors.Is(err, queuepkg.ErrFull):
 		writeError(w, http.StatusConflict, "queue_full", "the queue has reached its configured limit")
-	case errors.Is(err, queuepkg.ErrProtected):
-		writeError(w, http.StatusConflict, "default_radio_protected", "the default radio is managed from Admin settings")
 	case errors.Is(err, source.ErrUnsupported):
 		writeError(w, http.StatusUnprocessableEntity, "unsupported_source", "this source type is not enabled")
 	default:

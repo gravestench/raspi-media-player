@@ -34,7 +34,7 @@ function render(snapshot) {
   const enrichmentTitle = current?.source.kind === 'direct' ? (playback.title || canonicalTitle) : (canonicalTitle || playback.title);
   const displayTitle = enrichmentTitle || (current ? sourceLabel(current.source.url) : 'Nothing playing');
   $('#now-playing-heading').textContent = displayTitle;
-  $('#now-source').textContent = current ? `${current.source.kind === 'direct' ? 'Stream' : current.source.kind} · ${current.source.url}` : 'Add a radio stream or audio URL to get started.';
+  $('#now-source').textContent = current ? `${current.radio ? 'Radio' : current.source.kind === 'direct' ? 'Stream' : current.source.kind} · ${current.source.url}` : 'Add a radio stream or audio URL to get started.';
   $('#position').textContent = formatTime(playback.position_seconds);
   $('#duration').textContent = playback.duration_seconds > 0 ? formatTime(playback.duration_seconds) : 'Live';
   const progress = $('#playback-progress'); progress.max = playback.duration_seconds || 1; progress.value = playback.duration_seconds ? Math.min(playback.position_seconds || 0, playback.duration_seconds) : 0;
@@ -44,7 +44,7 @@ function render(snapshot) {
   const hasCurrent = Boolean(current);
   $('#pause-button').disabled = !hasCurrent || playback.paused;
   $('#resume-button').disabled = !hasCurrent || (!playback.paused && playback.status !== 'stopped');
-  $('#skip-button').disabled = !hasCurrent || Boolean(current?.default);
+  $('#skip-button').disabled = !hasCurrent;
   $('#like-button').hidden = !state.session; $('#like-button').disabled = !hasCurrent || !state.session;
   const vote = snapshot.skip_vote; const voteStatus = $('#vote-status');
   if (vote?.enabled && hasCurrent) {
@@ -129,7 +129,7 @@ function sourceLabel(url) {
 }
 
 function renderQueue(items) {
-  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error, item.default, item.removal_vote?.votes, item.removal_vote?.required, item.removal_vote?.voted]));
+  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error, item.radio, item.removal_vote?.votes, item.removal_vote?.required, item.removal_vote?.voted]));
   if (signature === state.queueSignature) return;
   state.queueSignature = signature;
   const list = $('#queue-list'); list.replaceChildren(); $('#queue-empty').hidden = items.length > 0; $('#clear-button').hidden = items.length === 0;
@@ -140,14 +140,12 @@ function renderQueue(items) {
     const title = document.createElement('span'); title.className = 'queue-title'; title.textContent = item.title || sourceLabel(item.source.url); title.title = item.source.url;
     const meta = document.createElement('div'); meta.className = 'queue-meta';
     const submitter = item.submitter.kind === 'user' ? item.submitter.username : item.submitter.display_name || 'Anonymous';
-    meta.textContent = item.error ? `${submitter} · ${item.error}` : item.default ? 'Fallback radio · plays when the queue is empty' : `Added by ${submitter}`; if (item.removal_vote?.votes) meta.textContent += ` · ${item.removal_vote.votes} of ${item.removal_vote.required} removal votes`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
-    const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.default ? 'fallback' : item.status;
+    meta.textContent = item.error ? `${submitter} · ${item.error}` : `${item.radio ? 'Radio stream · ' : ''}Added by ${submitter}`; if (item.removal_vote?.votes) meta.textContent += ` · ${item.removal_vote.votes} of ${item.removal_vote.required} removal votes`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
+    const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.radio ? 'radio' : item.status;
     const actions = document.createElement('div'); actions.className = 'item-actions';
-    if (!item.default) {
-      if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
-      if (index < items.length - 1 && !items[index + 1]?.default) actions.append(actionButton('↓', `Move ${title.textContent} down`, () => moveItem(index, 1)));
-      const removal = item.removal_vote; actions.append(actionButton(removal?.voted ? '✓' : '×', removal ? (removal.voted ? `Withdraw removal vote for ${title.textContent}` : `Vote to remove ${title.textContent}`) : `Remove ${title.textContent}`, () => removeItem(item)));
-    }
+    if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
+    if (index < items.length - 1) actions.append(actionButton('↓', `Move ${title.textContent} down`, () => moveItem(index, 1)));
+    const removal = item.removal_vote; actions.append(actionButton(removal?.voted ? '✓' : '×', removal ? (removal.voted ? `Withdraw removal vote for ${title.textContent}` : `Vote to remove ${title.textContent}`) : `Remove ${title.textContent}`, () => removeItem(item)));
     row.append(number, copy, badge, actions); list.append(row);
   });
 }
@@ -296,15 +294,18 @@ async function loadAccount() {
   try {
     const value = await api('/api/v1/account'); root.replaceChildren();
     const genres = dashboardCard('Your genres'); const genreCloud = document.createElement('div'); genreCloud.className = 'genre-cloud'; (value.genres || []).forEach(item => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = `${item.name} · ${item.count}`; tag.addEventListener('click', () => discoverGenre(item.name)); genreCloud.append(tag); }); if (!value.genres?.length) genreCloud.textContent = 'Play some enriched tracks to build your taste profile.'; genres.append(genreCloud);
-    const recent = dashboardCard('Recently played'); (value.recent || []).slice(0, 20).forEach(item => recent.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url)));
-    const likes = dashboardCard('Liked tracks'); (value.likes || []).slice(0, 20).forEach(item => likes.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url)));
-    const favorites = dashboardCard('Favorite stations'); (value.favorites || []).forEach(item => favorites.append(queueableRow(item.name, item.stream_url)));
-    const playlists = dashboardCard('Playlists'); (value.playlists || []).forEach(item => { const row = document.createElement('div'); row.className = 'dashboard-row'; row.append(Object.assign(document.createElement('strong'), { textContent: item.name }), Object.assign(document.createElement('span'), { textContent: `${item.items.length} items` })); const button = actionButton('▶', `Queue ${item.name}`, () => queuePlaylist(item)); row.append(button); playlists.append(row); });
+    const recent = dashboardCard('Recently played'); (value.recent || []).slice(0, 20).forEach(item => recent.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url, () => removeAccountHistory(item))));
+    const likes = dashboardCard('Liked tracks'); (value.likes || []).slice(0, 20).forEach(item => likes.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url, () => removeAccountLike(item))));
+    const favorites = dashboardCard('Favorite stations'); (value.favorites || []).forEach(item => favorites.append(queueableRow(item.name, item.stream_url, () => removeAccountFavorite(item))));
+    const playlists = dashboardCard('Playlists'); (value.playlists || []).forEach(item => { const row = document.createElement('div'); row.className = 'dashboard-row'; row.append(Object.assign(document.createElement('strong'), { textContent: item.name }), Object.assign(document.createElement('span'), { textContent: `${item.items.length} items` })); row.append(actionButton('▶', `Queue ${item.name}`, () => queuePlaylist(item)), actionButton('×', `Delete ${item.name}`, async () => { await deletePlaylist(item); await loadAccount(); })); playlists.append(row); });
     root.append(genres, likes, recent, favorites, playlists);
   } catch (error) { root.textContent = error.message; }
 }
 function dashboardCard(title) { const card = document.createElement('article'); card.className = 'dashboard-card'; const heading = document.createElement('h3'); heading.textContent = title; card.append(heading); return card; }
-function queueableRow(label, url) { const row = document.createElement('div'); row.className = 'dashboard-row'; const text = document.createElement('span'); text.textContent = label; row.append(text, actionButton('＋', `Queue ${label}`, () => queueURL(url, label))); return row; }
+function queueableRow(label, url, remove) { const row = document.createElement('div'); row.className = 'dashboard-row'; const text = document.createElement('span'); text.textContent = label; row.append(text, actionButton('＋', `Queue ${label}`, () => queueURL(url, label))); if (remove) row.append(actionButton('×', `Remove ${label} from your account`, remove)); return row; }
+async function removeAccountLike(item) { try { await api(`/api/v1/account/likes?source_url=${encodeURIComponent(item.source_url)}&title=${encodeURIComponent(item.title)}`, { method:'DELETE' }); await loadAccount(); showToast('Like removed.'); } catch (error) { showToast(error.message); } }
+async function removeAccountHistory(item) { try { await api(`/api/v1/account/history/${item.id}`, { method:'DELETE' }); await loadAccount(); showToast('Play removed from your profile.'); } catch (error) { showToast(error.message); } }
+async function removeAccountFavorite(item) { try { await api(`/api/v1/stations/${item.id}/favorite`, { method:'PUT', body:JSON.stringify({ favorite:false }) }); await Promise.all([loadAccount(), loadLibrary()]); showToast('Favorite removed.'); } catch (error) { showToast(error.message); } }
 async function queueURL(url, label = 'Item', storedTitle = label) { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url, title:storedTitle === 'Item' || storedTitle === 'Stream' ? '' : storedTitle }) })); showToast(`${label} added to the queue.`); } catch (error) { showToast(error.message); } }
 
 async function loadAdmin() {

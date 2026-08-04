@@ -120,6 +120,36 @@ func (a *application) likeQueueItem(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "queue_item_not_found", "queue item was not found")
 }
 
+func (a *application) deleteAccountLike(w http.ResponseWriter, r *http.Request) {
+	identity := requireIdentity(w, r)
+	if identity == nil {
+		return
+	}
+	sourceURL := strings.TrimSpace(r.URL.Query().Get("source_url"))
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	if sourceURL == "" || title == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "source_url and title are required")
+		return
+	}
+	if err := a.library.DeleteLikedTrack(r.Context(), identity.Session.User.ID, sourceURL, title); err != nil {
+		a.libraryError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *application) deleteAccountHistory(w http.ResponseWriter, r *http.Request) {
+	identity := requireIdentity(w, r)
+	if identity == nil {
+		return
+	}
+	if err := a.library.RemoveUserHistory(r.Context(), identity.Session.User.ID, r.PathValue("id")); err != nil {
+		a.libraryError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type favoriteRequest struct {
 	Favorite bool `json:"favorite"`
 }

@@ -80,7 +80,7 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 	}
 	queued := 0
 	for _, item := range snapshot.Items {
-		if item.Status == "queued" && !item.Default {
+		if item.Status == "queued" {
 			queued++
 		}
 	}

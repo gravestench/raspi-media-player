@@ -568,25 +568,24 @@ Acceptance criteria:
 
 ---
 
-## Milestone 21 — Default fallback radio
+## Milestone 21 — Radio queue clarity and account cleanup
 
-Goal: keep the household speaker useful between requests without mixing fallback
-radio into recommendation logic or ordinary queue ownership.
+Goal: treat radio as an understandable ordinary queue source and give listeners
+control over the data collected on their account page.
 
-- [x] Add dynamically configurable fallback stream URL and label settings.
-- [x] Pin one protected fallback item after all requested and auto-queued items.
-- [x] Interrupt fallback playback when a request arrives and resume it when the
-      requested queue drains.
-- [x] Preserve the fallback across clear/reorder operations and exclude it from
-      queue limits, auto-queue depth, removal voting, and skip voting.
-- [x] Preserve changing live stream metadata and enrichment on the fallback.
-- [x] Add queue, migration, API, and regression coverage.
+- [x] Remove the protected fallback-radio service and Admin configuration.
+- [x] Migrate existing fallback items and settings out of installed databases.
+- [x] Mark queued saved stations as radio without sacrificing live-title
+      enrichment, artwork, artist context, or genre tags.
+- [x] Let listeners remove likes and personal history associations from Account.
+- [x] Expose existing favorite-station and playlist removal on Account.
+- [x] Add migration, API, UI, and regression coverage.
 
 Acceptance criteria:
 
-- The configured station plays whenever no requested item is waiting.
-- Requested media always takes priority and the fallback remains last.
-- Administrators can change or disable the fallback without restarting.
+- A radio stream is queued, reordered, voted on, skipped, and removed normally.
+- Queue rows identify saved radio streams and enrich their current track title.
+- Every collection shown on Account provides an appropriate removal action.
 
 ---
 

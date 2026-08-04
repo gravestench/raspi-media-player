@@ -432,6 +432,31 @@ func (s *Store) ListLikedTracks(ctx context.Context, userID string, limit int) (
 	}
 	return result, rows.Err()
 }
+
+func (s *Store) DeleteLikedTrack(ctx context.Context, userID, sourceURL, title string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM track_likes WHERE user_id = ? AND source_url = ? AND title = ?`, userID, sourceURL, title)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// RemoveUserHistory removes a play from a user's profile while retaining the
+// shared household playback record.
+func (s *Store) RemoveUserHistory(ctx context.Context, userID, historyID string) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE playback_history SET submitter_user_id = NULL WHERE id = ? AND submitter_user_id = ?`, historyID, userID)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) Search(ctx context.Context, userID, query string) (SearchResults, error) {
 	stations, err := s.ListStations(ctx, userID, query)
 	if err != nil {

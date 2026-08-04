@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -86,5 +87,14 @@ func TestLikeQueueItemAddsTrackToUserProfile(t *testing.T) {
 	duplicate := authRequest(t, handler, http.MethodPut, "/api/v1/queue/items/"+snapshot.Items[0].ID+"/like", `{}`, cookies, account.CSRFToken)
 	if duplicate.Code != http.StatusOK {
 		t.Fatalf("repeat like: %d %s", duplicate.Code, duplicate.Body.String())
+	}
+	removePath := "/api/v1/account/likes?source_url=" + url.QueryEscape("https://www.youtube.com/watch?v=liked123") + "&title=" + url.QueryEscape("Artist Name - Recommended Song")
+	removed := authRequest(t, handler, http.MethodDelete, removePath, "", cookies, account.CSRFToken)
+	if removed.Code != http.StatusNoContent {
+		t.Fatalf("remove like: %d %s", removed.Code, removed.Body.String())
+	}
+	dashboard = authRequest(t, handler, http.MethodGet, "/api/v1/account", "", cookies, "")
+	if bytes.Contains(dashboard.Body.Bytes(), []byte("Recommended Song")) {
+		t.Fatalf("removed like still in account: %s", dashboard.Body.String())
 	}
 }

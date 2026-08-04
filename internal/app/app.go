@@ -190,6 +190,8 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("GET /api/v1/history", a.listHistory)
 	mux.HandleFunc("GET /api/v1/library/search", a.searchLibrary)
 	mux.HandleFunc("GET /api/v1/account", a.accountDashboard)
+	mux.HandleFunc("DELETE /api/v1/account/likes", a.deleteAccountLike)
+	mux.HandleFunc("DELETE /api/v1/account/history/{id}", a.deleteAccountHistory)
 	mux.HandleFunc("PUT /api/v1/queue/items/{id}/like", a.likeQueueItem)
 	mux.HandleFunc("GET /api/v1/youtube/search", a.searchYouTube)
 	mux.HandleFunc("GET /api/v1/enrichment", a.getEnrichment)

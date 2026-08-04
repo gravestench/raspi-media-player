@@ -30,18 +30,28 @@ curl --silent --fail --cookie "$COOKIE_JAR" --request POST --header "X-CSRF-Toke
 search=$(curl --silent --fail --cookie "$COOKIE_JAR" "$TEST_BASE_URL/api/v1/library/search?q=Regression")
 [ "$(printf '%s' "$search" | jq -r '.playlists | length')" = 1 ] || { echo "playlist search failed" >&2; exit 1; }
 
-queue=$(curl --silent --fail --request POST --header 'Content-Type: application/json' --data '{"url":"https://example.com/history-test.mp3","title":"Regression Artist - Liked Recommendation"}' "$TEST_BASE_URL/api/v1/queue/items")
+queue=$(curl --silent --fail --cookie "$COOKIE_JAR" --request POST --header "X-CSRF-Token: $csrf" --header 'Content-Type: application/json' --data '{"url":"https://example.com/history-test.mp3","title":"Regression Artist - Liked Recommendation"}' "$TEST_BASE_URL/api/v1/queue/items")
 revision=$(printf '%s' "$queue" | jq -r .revision)
 queue_item_id=$(printf '%s' "$queue" | jq -r '.items[0].id')
 curl --silent --fail --cookie "$COOKIE_JAR" --request PUT --header "X-CSRF-Token: $csrf" --header 'Content-Type: application/json' \
     --data '{}' "$TEST_BASE_URL/api/v1/queue/items/$queue_item_id/like" >/dev/null
 account=$(curl --silent --fail --cookie "$COOKIE_JAR" "$TEST_BASE_URL/api/v1/account")
 [ "$(printf '%s' "$account" | jq -r '.likes[0].title')" = 'Regression Artist - Liked Recommendation' ] || { echo "liked track missing from account" >&2; exit 1; }
+curl --silent --fail --cookie "$COOKIE_JAR" --request DELETE --header "X-CSRF-Token: $csrf" \
+    --get --data-urlencode 'source_url=https://example.com/history-test.mp3' --data-urlencode 'title=Regression Artist - Liked Recommendation' \
+    "$TEST_BASE_URL/api/v1/account/likes" >/dev/null
+account=$(curl --silent --fail --cookie "$COOKIE_JAR" "$TEST_BASE_URL/api/v1/account")
+[ "$(printf '%s' "$account" | jq -r '.likes | length')" = 0 ] || { echo "liked track was not removed from account" >&2; exit 1; }
 curl --silent --fail --request POST "$TEST_BASE_URL/api/v1/playback/resume" >/dev/null
 attempt=0
 until [ "$(curl --silent --fail "$TEST_BASE_URL/api/v1/history?q=history-test" | jq -r '.history | length')" -ge 1 ]; do
     attempt=$((attempt + 1)); [ "$attempt" -lt 30 ] || { echo "playback history was not recorded" >&2; exit 1; }; sleep 0.1
 done
+account=$(curl --silent --fail --cookie "$COOKIE_JAR" "$TEST_BASE_URL/api/v1/account")
+history_id=$(printf '%s' "$account" | jq -r '.recent[0].id')
+curl --silent --fail --cookie "$COOKIE_JAR" --request DELETE --header "X-CSRF-Token: $csrf" "$TEST_BASE_URL/api/v1/account/history/$history_id" >/dev/null
+account=$(curl --silent --fail --cookie "$COOKIE_JAR" "$TEST_BASE_URL/api/v1/account")
+[ "$(printf '%s' "$account" | jq -r '.recent | length')" = 0 ] || { echo "history item was not removed from account" >&2; exit 1; }
 latest=$(curl --silent --fail "$TEST_BASE_URL/api/v1/queue")
 revision=$(printf '%s' "$latest" | jq -r .revision)
 curl --silent --fail --request DELETE --header "If-Match: \"$revision\"" "$TEST_BASE_URL/api/v1/queue" >/dev/null

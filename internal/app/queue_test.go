@@ -40,7 +40,7 @@ func TestAnonymousQueueLifecycle(t *testing.T) {
 		t.Fatalf("add first: %d %s", first.Code, first.Body.String())
 	}
 	snapshot := snapshotFrom(t, first)
-	if snapshot.Revision != 1 || len(snapshot.Items) != 1 || snapshot.Items[0].Title != "Artist - Track" || snapshot.Items[0].Status != "queued" || snapshot.Items[0].Submitter.Kind != "anonymous" {
+	if snapshot.Revision != 1 || len(snapshot.Items) != 1 || snapshot.Items[0].Title != "Artist - Track" || snapshot.Items[0].Status != "queued" || snapshot.Items[0].Submitter.Kind != "anonymous" || !snapshot.Items[0].Radio {
 		t.Fatalf("unexpected first snapshot: %+v", snapshot)
 	}
 	firstID := snapshot.Items[0].ID
