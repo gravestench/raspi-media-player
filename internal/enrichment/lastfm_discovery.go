@@ -73,7 +73,7 @@ func (p *LastFMProvider) DiscoverTag(ctx context.Context, tag string, limit int)
 			result.Artists = payload.TopArtists.Artists
 		case "tag.getTopTracks":
 			var payload struct {
-				TopTracks struct {
+				Tracks struct {
 					Tracks []struct {
 						Name   string `json:"name"`
 						URL    string `json:"url"`
@@ -82,13 +82,13 @@ func (p *LastFMProvider) DiscoverTag(ctx context.Context, tag string, limit int)
 							URL  string `json:"url"`
 						} `json:"artist"`
 					} `json:"track"`
-				} `json:"toptracks"`
+				} `json:"tracks"`
 				Error int `json:"error"`
 			}
 			if err := json.Unmarshal(value.data, &payload); err != nil || payload.Error != 0 {
 				return TagDiscovery{}, errors.New("decode last.fm track discovery response")
 			}
-			for _, track := range payload.TopTracks.Tracks {
+			for _, track := range payload.Tracks.Tracks {
 				if strings.TrimSpace(track.Name) != "" && strings.TrimSpace(track.Artist.Name) != "" {
 					result.Tracks = append(result.Tracks, TagTrack{Name: track.Name, URL: track.URL, Artist: track.Artist.Name, ArtistURL: track.Artist.URL})
 				}

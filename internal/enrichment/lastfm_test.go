@@ -52,7 +52,7 @@ func TestLastFMTagDiscoveryMapsArtistsAndTracks(t *testing.T) {
 		case "tag.getTopArtists":
 			_, _ = w.Write([]byte(`{"topartists":{"artist":[{"name":"Alice Coltrane","url":"https://last.fm/alice"}]}}`))
 		case "tag.getTopTracks":
-			_, _ = w.Write([]byte(`{"toptracks":{"track":[{"name":"The Creator Has a Master Plan","url":"https://last.fm/track","artist":{"name":"Pharoah Sanders","url":"https://last.fm/pharoah"}}]}}`))
+			_, _ = w.Write([]byte(`{"tracks":{"track":[{"name":"The Creator Has a Master Plan","url":"https://last.fm/track","artist":{"name":"Pharoah Sanders","url":"https://last.fm/pharoah"}}]}}`))
 		default:
 			t.Errorf("unexpected method")
 		}
