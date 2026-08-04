@@ -72,7 +72,7 @@ func (c *Coordinator) fetch(key string, hint TrackHint) {
 	defer func() { c.mu.Lock(); delete(c.inflight, key); c.mu.Unlock() }()
 	c.slots <- struct{}{}
 	defer func() { <-c.slots }()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	providerCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	merged := Result{CacheKey: key, Hint: hint, Genres: []string{}, RelatedArtists: []ArtistSummary{}, Status: "ready"}
 	found := false
@@ -88,7 +88,7 @@ func (c *Coordinator) fetch(key string, hint TrackHint) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			value, err := provider.Lookup(ctx, hint)
+			value, err := provider.Lookup(providerCtx, hint)
 			results <- providerResult{index: index, value: value, err: err}
 		}()
 	}
@@ -109,13 +109,16 @@ func (c *Coordinator) fetch(key string, hint TrackHint) {
 	if found {
 		merged.Provider = strings.Join(providerNames, ",")
 		if merged.Image.URL != "" && c.images != nil && strings.Contains(merged.Provider, "wikimedia") {
-			if cached, err := c.images.Cache(ctx, key, merged.Image); err == nil {
+			imageCtx, imageCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			cached, err := c.images.Cache(imageCtx, key, merged.Image)
+			imageCancel()
+			if err == nil {
 				merged.Image = cached
 			}
 		}
 		merged.FetchedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		merged.ExpiresAt = time.Now().Add(c.ttl).UTC().Format(time.RFC3339Nano)
-		_ = c.store.Put(ctx, merged)
+		_ = c.store.Put(context.Background(), merged)
 		return
 	}
 	_ = c.store.Put(context.Background(), Result{CacheKey: key, Hint: hint, Status: "not_found", ErrorCode: "provider_not_found", FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), ExpiresAt: time.Now().Add(c.negativeTTL).UTC().Format(time.RFC3339Nano)})
