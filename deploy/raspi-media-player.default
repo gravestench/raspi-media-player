@@ -1,0 +1,5 @@
+# /etc/default/raspi-media-player
+RASPI_MEDIA_PLAYER_ADDR=0.0.0.0:8080
+RASPI_MEDIA_PLAYER_DB=/var/lib/raspi-media-player/player.sqlite
+RASPI_MEDIA_PLAYER_LOG_FORMAT=json
+RASPI_MEDIA_PLAYER_LOG_LEVEL=info

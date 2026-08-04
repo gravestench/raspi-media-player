@@ -1,0 +1,12 @@
+/bin/
+/dist/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.pid
+*.log
+.DS_Store
+.env
