@@ -77,8 +77,9 @@ func (p *WikimediaProvider) Lookup(ctx context.Context, hint TrackHint) (Result,
 		Query struct {
 			Pages map[string]struct {
 				ImageInfo []struct {
-					ThumbURL, DescriptionURL string
-					ExtMetadata              map[string]struct {
+					ThumbURL       string `json:"thumburl"`
+					DescriptionURL string `json:"descriptionurl"`
+					ExtMetadata    map[string]struct {
 						Value string `json:"value"`
 					} `json:"extmetadata"`
 				} `json:"imageinfo"`
