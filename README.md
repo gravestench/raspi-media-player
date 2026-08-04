@@ -66,3 +66,17 @@ No password is read from a project file or stored by the script. The deployed
 service listens on port 8080, stores its database under
 `/var/lib/raspi-media-player`, and writes structured logs to
 `/var/log/raspi-media-player.log`.
+
+Before the first deployment, copy `scripts/install-dependencies.sh` to the Pi
+and run it there:
+
+```sh
+./install-dependencies.sh
+```
+
+It installs the Debian packages needed for playback, init.d operation, audio
+diagnostics, SQLite inspection, and API regression testing. It is safe to run
+again after upgrades. Use `./install-dependencies.sh --check` to verify the
+machine without changing it. Go is intentionally not installed on the Pi; the
+deployment script cross-compiles a static Linux/ARM64 binary on the development
+machine.

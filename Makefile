@@ -1,4 +1,4 @@
-.PHONY: build build-pi deploy-pi test vet check run test-api
+.PHONY: build build-pi deploy-pi test vet check run test-api check-pi-dependencies
 
 build:
 	mkdir -p bin
@@ -9,6 +9,9 @@ build-pi:
 
 deploy-pi:
 	./scripts/deploy-pi.sh
+
+check-pi-dependencies:
+	./scripts/install-dependencies.sh --check
 
 test:
 	go test ./...
