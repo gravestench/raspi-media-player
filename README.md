@@ -55,6 +55,9 @@ The anonymous shared queue API is documented in
 Optional local accounts, access modes, sessions, and CSRF behavior are documented
 in [docs/authentication.md](docs/authentication.md).
 
+Player configuration, queue advancement, and playback controls are documented in
+[docs/playback.md](docs/playback.md).
+
 ## Daemon deployment
 
 Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi

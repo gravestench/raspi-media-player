@@ -22,6 +22,8 @@ export TEST_SERVER_BINARY="$TEST_TMP/raspi-media-player"
 "$TEST_TMP/raspi-media-player" \
     -addr "127.0.0.1:${TEST_PORT}" \
     -db "$TEST_TMP/test.sqlite" \
+    -player-enabled=true \
+    -player-backend=fake \
     -log-format json >"$TEST_TMP/server.log" 2>&1 &
 SERVER_PID=$!
 
@@ -39,4 +41,5 @@ done
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-health.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-queue.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-auth.sh"
+TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-playback.sh"
 echo "All API regression tests passed."

@@ -67,7 +67,8 @@ func (a *application) protectMutations(next http.Handler) http.Handler {
 
 func (a *application) enforceAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.options.AccessMode == "accounts_required" && strings.HasPrefix(r.URL.Path, "/api/v1/queue") && r.Method != http.MethodGet && identityFromContext(r.Context()) == nil {
+		protected := strings.HasPrefix(r.URL.Path, "/api/v1/queue") || strings.HasPrefix(r.URL.Path, "/api/v1/playback")
+		if a.options.AccessMode == "accounts_required" && protected && r.Method != http.MethodGet && identityFromContext(r.Context()) == nil {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "sign in to perform this action")
 			return
 		}

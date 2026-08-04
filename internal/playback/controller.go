@@ -1,0 +1,252 @@
+package playback
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"sync"
+	"time"
+
+	"github.com/dylanknuth/raspi-media-player/internal/player"
+	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+)
+
+type Controller struct {
+	logger     *slog.Logger
+	queue      *queuepkg.Store
+	player     player.Player
+	mu         sync.Mutex
+	loadedID   string
+	stopped    bool
+	ctx        context.Context
+	cancel     context.CancelFunc
+	done       chan struct{}
+	retryLimit int
+	retries    map[string]int
+	retryAfter time.Time
+}
+
+type Options struct{ RetryLimit int }
+
+func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, options ...Options) *Controller {
+	retryLimit := 0
+	if len(options) > 0 && options[0].RetryLimit > 0 {
+		retryLimit = options[0].RetryLimit
+	}
+	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int)}
+}
+
+func (c *Controller) Start(parent context.Context) error {
+	c.ctx, c.cancel = context.WithCancel(parent)
+	if err := c.queue.ReconcilePlayback(c.ctx); err != nil {
+		return fmt.Errorf("reconcile playback: %w", err)
+	}
+	if err := c.player.Start(c.ctx); err != nil {
+		return fmt.Errorf("start player: %w", err)
+	}
+	go c.run()
+	return nil
+}
+
+func (c *Controller) run() {
+	defer close(c.done)
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case event := <-c.player.Events():
+			c.handleEvent(event)
+		case <-ticker.C:
+			c.reconcile()
+		}
+	}
+}
+
+func (c *Controller) reconcile() {
+	c.mu.Lock()
+	retryAfter := c.retryAfter
+	c.mu.Unlock()
+	if !retryAfter.IsZero() && time.Now().Before(retryAfter) {
+		return
+	}
+	snapshot, err := c.queue.Snapshot(c.ctx)
+	if err != nil {
+		c.logger.Error("playback queue reconciliation failed", "error", err)
+		return
+	}
+	c.mu.Lock()
+	loadedID, stopped := c.loadedID, c.stopped
+	c.mu.Unlock()
+	if stopped {
+		return
+	}
+	var next *queuepkg.Item
+	for i := range snapshot.Items {
+		if snapshot.Items[i].Status == "queued" || snapshot.Items[i].Status == "current" {
+			next = &snapshot.Items[i]
+			break
+		}
+	}
+	if next == nil {
+		if loadedID != "" {
+			_ = c.player.Stop(c.ctx)
+			c.mu.Lock()
+			c.loadedID = ""
+			c.mu.Unlock()
+		}
+		if snapshot.Playback.Status != "idle" && snapshot.Playback.Status != "stopped" {
+			_ = c.queue.ResetPlayback(c.ctx, "idle", "")
+		}
+		return
+	}
+	if next.ID == loadedID {
+		return
+	}
+	if err := c.queue.SetCurrent(c.ctx, next.ID); err != nil {
+		if !errors.Is(err, queuepkg.ErrNotFound) {
+			c.logger.Error("set current queue item failed", "error", err, "queue_item_id", next.ID)
+		}
+		return
+	}
+	if err := c.player.Load(c.ctx, next.Source.URL); err != nil {
+		if errors.Is(err, player.ErrUnavailable) {
+			_ = c.queue.ResetPlayback(c.ctx, "unavailable", err.Error())
+			return
+		}
+		_ = c.queue.FinishCurrent(c.ctx, next.ID, err)
+		c.logger.Error("load media failed", "error", err, "queue_item_id", next.ID)
+		return
+	}
+	if err := c.player.SetVolume(c.ctx, snapshot.Playback.Volume); err != nil {
+		c.logger.Warn("restore playback volume failed", "error", err, "volume", snapshot.Playback.Volume)
+	}
+	c.mu.Lock()
+	c.loadedID = next.ID
+	c.mu.Unlock()
+	c.logger.Info("playback item loaded", "queue_item_id", next.ID, "source_kind", next.Source.Kind)
+}
+
+func (c *Controller) handleEvent(event player.Event) {
+	c.mu.Lock()
+	loadedID := c.loadedID
+	c.mu.Unlock()
+	switch event.Type {
+	case player.EventState:
+		c.mu.Lock()
+		stopped := c.stopped
+		c.mu.Unlock()
+		if stopped {
+			return
+		}
+		if event.State.Status == "unavailable" {
+			if err := c.queue.ResetPlayback(c.ctx, "unavailable", event.State.Error); err != nil {
+				c.logger.Error("persist unavailable player state failed", "error", err)
+			}
+			c.mu.Lock()
+			c.loadedID = ""
+			c.mu.Unlock()
+			return
+		}
+		if loadedID == "" && event.State.Status == "idle" {
+			if err := c.queue.ResetPlayback(c.ctx, "idle", ""); err != nil {
+				c.logger.Error("clear idle playback state failed", "error", err)
+			}
+			return
+		}
+		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: event.State.Volume, Error: event.State.Error}
+		if err := c.queue.UpdatePlayback(c.ctx, state); err != nil {
+			c.logger.Error("persist playback state failed", "error", err)
+		}
+	case player.EventEnded:
+		if loadedID != "" {
+			c.mu.Lock()
+			delete(c.retries, loadedID)
+			c.mu.Unlock()
+			if err := c.queue.FinishCurrent(c.ctx, loadedID, nil); err != nil && !errors.Is(err, queuepkg.ErrNotFound) {
+				c.logger.Error("advance completed item failed", "error", err)
+			}
+			c.mu.Lock()
+			c.loadedID = ""
+			c.mu.Unlock()
+		}
+	case player.EventFailed:
+		failure := event.Error
+		if failure == nil {
+			failure = errors.New("media playback failed")
+		}
+		if loadedID != "" {
+			c.mu.Lock()
+			attempts := c.retries[loadedID]
+			if attempts < c.retryLimit {
+				c.retries[loadedID] = attempts + 1
+				c.loadedID = ""
+				c.retryAfter = time.Now().Add(500 * time.Millisecond)
+				c.mu.Unlock()
+				if err := c.queue.RetryCurrent(c.ctx, loadedID, failure); err != nil {
+					c.logger.Error("schedule media retry failed", "error", err)
+				}
+				c.logger.Warn("retrying failed media item", "error", failure, "queue_item_id", loadedID, "attempt", attempts+1, "retry_limit", c.retryLimit)
+				return
+			}
+			delete(c.retries, loadedID)
+			c.mu.Unlock()
+			if err := c.queue.FinishCurrent(c.ctx, loadedID, failure); err != nil && !errors.Is(err, queuepkg.ErrNotFound) {
+				c.logger.Error("mark failed item failed", "error", err)
+			}
+			c.logger.Warn("media item failed", "error", failure, "queue_item_id", loadedID)
+			c.mu.Lock()
+			c.loadedID = ""
+			c.mu.Unlock()
+		}
+	}
+}
+
+func (c *Controller) Pause(ctx context.Context) error { return c.player.SetPaused(ctx, true) }
+func (c *Controller) Resume(ctx context.Context) error {
+	snapshot, err := c.queue.Snapshot(ctx)
+	if err != nil {
+		return err
+	}
+	if snapshot.Playback.Status == "stopped" {
+		c.mu.Lock()
+		c.loadedID = ""
+		c.stopped = false
+		c.mu.Unlock()
+		if err := c.queue.ReconcilePlayback(ctx); err != nil {
+			return err
+		}
+		return nil
+	}
+	return c.player.SetPaused(ctx, false)
+}
+func (c *Controller) Stop(ctx context.Context) error {
+	if err := c.player.Stop(ctx); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.loadedID = ""
+	c.stopped = true
+	c.mu.Unlock()
+	return c.queue.ResetPlayback(ctx, "stopped", "")
+}
+func (c *Controller) Seek(ctx context.Context, seconds float64) error {
+	return c.player.Seek(ctx, seconds)
+}
+func (c *Controller) SetVolume(ctx context.Context, volume int) error {
+	return c.player.SetVolume(ctx, volume)
+}
+func (c *Controller) Close() error {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	_ = c.player.Close()
+	select {
+	case <-c.done:
+	case <-time.After(5 * time.Second):
+		return errors.New("playback controller shutdown timed out")
+	}
+	return nil
+}

@@ -16,6 +16,9 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/config"
 	"github.com/dylanknuth/raspi-media-player/internal/database"
 	"github.com/dylanknuth/raspi-media-player/internal/logging"
+	"github.com/dylanknuth/raspi-media-player/internal/playback"
+	"github.com/dylanknuth/raspi-media-player/internal/player"
+	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
 )
 
 var (
@@ -38,6 +41,13 @@ func main() {
 	flag.BoolVar(&cfg.SecureCookie, "secure-cookie", cfg.SecureCookie, "require HTTPS for session cookies")
 	flag.IntVar(&cfg.ArgonMemory, "argon-memory", cfg.ArgonMemory, "Argon2id memory in KiB")
 	flag.IntVar(&cfg.ArgonTime, "argon-iterations", cfg.ArgonTime, "Argon2id iteration count")
+	flag.BoolVar(&cfg.PlayerEnabled, "player-enabled", cfg.PlayerEnabled, "enable mpv playback")
+	flag.StringVar(&cfg.PlayerBackend, "player-backend", cfg.PlayerBackend, "player backend: mpv or fake")
+	flag.StringVar(&cfg.MPVBinary, "mpv-binary", cfg.MPVBinary, "mpv executable path")
+	flag.StringVar(&cfg.MPVSocket, "mpv-socket", cfg.MPVSocket, "mpv IPC Unix socket path")
+	flag.StringVar(&cfg.AudioDevice, "audio-device", cfg.AudioDevice, "mpv audio device or auto")
+	flag.IntVar(&cfg.CacheSeconds, "cache-seconds", cfg.CacheSeconds, "network media cache duration")
+	flag.IntVar(&cfg.PlayerRetries, "player-retries", cfg.PlayerRetries, "media retries before marking an item failed")
 	flag.Parse()
 
 	logger, err := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
@@ -54,8 +64,35 @@ func main() {
 	}
 	defer db.Close()
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	var playbackController *playback.Controller
+	if cfg.PlayerEnabled {
+		var output player.Player
+		switch cfg.PlayerBackend {
+		case "mpv":
+			output = player.NewMPV(logger, player.MPVConfig{Binary: cfg.MPVBinary, SocketPath: cfg.MPVSocket, AudioDevice: cfg.AudioDevice, CacheSeconds: cfg.CacheSeconds})
+		case "fake":
+			output = player.NewFake()
+		default:
+			logger.Error("invalid player backend", "player_backend", cfg.PlayerBackend)
+			os.Exit(2)
+		}
+		playbackController = playback.New(logger, queuepkg.NewStore(db), output, playback.Options{RetryLimit: cfg.PlayerRetries})
+		if err := playbackController.Start(ctx); err != nil {
+			logger.Error("playback initialization failed", "error", err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := playbackController.Close(); err != nil {
+				logger.Error("playback shutdown failed", "error", err)
+			}
+		}()
+	}
+
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime)})
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController})
 	if err != nil {
 		logger.Error("application initialization failed", "error", err)
 		os.Exit(2)
@@ -68,9 +105,6 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	serverErrors := make(chan error, 1)
 	go func() {

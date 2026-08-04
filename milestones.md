@@ -167,17 +167,17 @@ Acceptance criteria:
 
 Goal: play queued direct audio and radio streams through the attached speaker.
 
-- [ ] Integrate `mpv` as a supervised child process using its IPC interface.
-- [ ] Implement play, pause, resume, stop, skip, seek (when supported), and
+- [x] Integrate `mpv` as a supervised child process using its IPC interface.
+- [x] Implement play, pause, resume, stop, skip, seek (when supported), and
       volume controls.
-- [ ] Advance automatically when a finite item ends.
-- [ ] Keep live radio streams playing until skipped or stopped.
-- [ ] Detect player crashes, invalid media, timeouts, and unreachable streams.
-- [ ] Mark failed items with a reason and continue according to configurable
+- [x] Advance automatically when a finite item ends.
+- [x] Keep live radio streams playing until skipped or stopped.
+- [x] Detect player crashes, invalid media, timeouts, and unreachable streams.
+- [x] Mark failed items with a reason and continue according to configurable
       retry/skip policy.
-- [ ] Reconcile persisted queue state with actual player state after restart.
-- [ ] Publish current title, duration, position, buffering, volume, and errors.
-- [ ] Add a fake player implementation for deterministic integration tests.
+- [x] Reconcile persisted queue state with actual player state after restart.
+- [x] Publish current title, duration, position, buffering, volume, and errors.
+- [x] Add a fake player implementation for deterministic integration tests.
 
 Acceptance criteria:
 
@@ -355,8 +355,11 @@ milestone is revised:
 - **Milestone 1:** Complete and verified on 2026-08-04.
 - **Milestone 2:** Complete and verified on 2026-08-04.
 - **Milestone 3:** Complete and verified on 2026-08-04.
-- **Current milestone:** Milestone 4 — Raspberry Pi playback controller
-- **Next feature milestone:** Milestone 5 — Real-time household web interface
+- **Milestone 4:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04, including finite HTTP audio, KFJC live radio, controls, and mpv
+  crash recovery.
+- **Current milestone:** Milestone 5 — Real-time household web interface
+- **Next feature milestone:** Milestone 6 — Favorites, stations, and personal library
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10

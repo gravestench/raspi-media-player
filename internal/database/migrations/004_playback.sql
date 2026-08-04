@@ -1,0 +1,10 @@
+ALTER TABLE queue_items ADD COLUMN playback_status TEXT NOT NULL DEFAULT 'queued';
+ALTER TABLE queue_items ADD COLUMN playback_error TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE queue_state ADD COLUMN current_item_id TEXT;
+ALTER TABLE queue_state ADD COLUMN title TEXT NOT NULL DEFAULT '';
+ALTER TABLE queue_state ADD COLUMN position_seconds REAL NOT NULL DEFAULT 0;
+ALTER TABLE queue_state ADD COLUMN duration_seconds REAL NOT NULL DEFAULT 0;
+ALTER TABLE queue_state ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE queue_state ADD COLUMN buffering INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE queue_state ADD COLUMN playback_error TEXT NOT NULL DEFAULT '';

@@ -23,6 +23,7 @@ type Item struct {
 	Submitter Submitter `json:"submitter"`
 	Position  int       `json:"position"`
 	Status    string    `json:"status"`
+	Error     string    `json:"error,omitempty"`
 	AddedAt   string    `json:"added_at"`
 }
 
@@ -39,8 +40,15 @@ type Submitter struct {
 }
 
 type PlaybackState struct {
-	Status string `json:"status"`
-	Volume int    `json:"volume"`
+	Status          string  `json:"status"`
+	CurrentItemID   string  `json:"current_item_id,omitempty"`
+	Title           string  `json:"title,omitempty"`
+	PositionSeconds float64 `json:"position_seconds"`
+	DurationSeconds float64 `json:"duration_seconds"`
+	Paused          bool    `json:"paused"`
+	Buffering       bool    `json:"buffering"`
+	Volume          int     `json:"volume"`
+	Error           string  `json:"error,omitempty"`
 }
 
 type Snapshot struct {
@@ -59,10 +67,10 @@ func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
 func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	var snapshot Snapshot
-	if err := s.db.QueryRowContext(ctx, `SELECT revision, playback_status, volume FROM queue_state WHERE singleton = 1`).Scan(&snapshot.Revision, &snapshot.Playback.Status, &snapshot.Playback.Volume); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT revision, playback_status, volume, COALESCE(current_item_id, ''), title, position_seconds, duration_seconds, paused, buffering, playback_error FROM queue_state WHERE singleton = 1`).Scan(&snapshot.Revision, &snapshot.Playback.Status, &snapshot.Playback.Volume, &snapshot.Playback.CurrentItemID, &snapshot.Playback.Title, &snapshot.Playback.PositionSeconds, &snapshot.Playback.DurationSeconds, &snapshot.Playback.Paused, &snapshot.Playback.Buffering, &snapshot.Playback.Error); err != nil {
 		return snapshot, fmt.Errorf("read queue state: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, '') FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, ''), q.playback_status, q.playback_error FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
 	if err != nil {
 		return snapshot, fmt.Errorf("list queue: %w", err)
 	}
@@ -70,17 +78,13 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	snapshot.Items = make([]Item, 0)
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.ID, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username); err != nil {
+		if err := rows.Scan(&item.ID, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username, &item.Status, &item.Error); err != nil {
 			return snapshot, fmt.Errorf("scan queue item: %w", err)
 		}
 		item.Submitter.Kind = "anonymous"
 		if item.Submitter.UserID != "" {
 			item.Submitter.Kind = "user"
 			item.Submitter.DisplayName = ""
-		}
-		item.Status = "queued"
-		if item.Position == 0 {
-			item.Status = "current"
 		}
 		snapshot.Items = append(snapshot.Items, item)
 	}
@@ -105,9 +109,6 @@ func (s *Store) Add(ctx context.Context, sourceURL, displayName string, user *Us
 	if user != nil {
 		item.Submitter = Submitter{Kind: "user", UserID: user.ID, Username: user.Username}
 		userID = user.ID
-	}
-	if position == 0 {
-		item.Status = "current"
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, source_kind, source_url, display_name, position, added_at, submitter_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, item.ID, item.Source.Kind, item.Source.URL, item.Submitter.DisplayName, item.Position, item.AddedAt, userID)
 	if err != nil {
@@ -184,6 +185,112 @@ func (s *Store) Reorder(ctx context.Context, ids []string, expected int64) (Snap
 		_, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = -position - 1`)
 		return err
 	})
+}
+
+func (s *Store) SetCurrent(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_items SET playback_status = 'queued', playback_error = '' WHERE playback_status = 'current'`); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE queue_items SET playback_status = 'current', playback_error = '' WHERE id = ? AND playback_status = 'queued'`, id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_state SET current_item_id = ?, playback_status = 'loading', title = '', position_seconds = 0, duration_seconds = 0, paused = 0, buffering = 0, playback_error = '', updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) UpdatePlayback(ctx context.Context, state PlaybackState) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE queue_state SET playback_status = ?, title = ?, position_seconds = ?, duration_seconds = ?, paused = ?, buffering = ?, volume = ?, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, state.Status, state.Title, state.PositionSeconds, state.DurationSeconds, state.Paused, state.Buffering, state.Volume, state.Error)
+	return err
+}
+
+func (s *Store) FinishCurrent(ctx context.Context, id string, failure error) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if failure == nil {
+		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE id = ? AND playback_status = 'current'`, id)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected != 1 {
+			return ErrNotFound
+		}
+		if err := compact(ctx, tx); err != nil {
+			return err
+		}
+	} else {
+		result, err := tx.ExecContext(ctx, `UPDATE queue_items SET playback_status = 'failed', playback_error = ? WHERE id = ? AND playback_status = 'current'`, failure.Error(), id)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected != 1 {
+			return ErrNotFound
+		}
+	}
+	message := ""
+	if failure != nil {
+		message = failure.Error()
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_state SET revision = revision + 1, current_item_id = NULL, playback_status = 'idle', title = '', position_seconds = 0, duration_seconds = 0, paused = 0, buffering = 0, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, message); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) RetryCurrent(ctx context.Context, id string, failure error) error {
+	message := ""
+	if failure != nil {
+		message = failure.Error()
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE queue_items SET playback_status = 'queued', playback_error = ? WHERE id = ? AND playback_status = 'current'`, message, id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_state SET current_item_id = NULL, playback_status = 'retrying', title = '', position_seconds = 0, duration_seconds = 0, paused = 0, buffering = 0, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, message); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ResetPlayback(ctx context.Context, status, message string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE queue_state SET current_item_id = NULL, playback_status = ?, title = '', position_seconds = 0, duration_seconds = 0, paused = 0, buffering = 0, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, status, message)
+	return err
+}
+
+func (s *Store) ReconcilePlayback(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_items SET playback_status = 'queued' WHERE playback_status = 'current'`); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_state SET current_item_id = NULL, playback_status = 'idle', title = '', position_seconds = 0, duration_seconds = 0, paused = 0, buffering = 0, playback_error = '', updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) mutate(ctx context.Context, expected int64, operation func(*sql.Tx) error) (Snapshot, error) {
