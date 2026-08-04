@@ -206,11 +206,6 @@ async function deleteStation(station) { try { await api(`/api/v1/stations/${stat
 async function deletePlaylist(playlist) { try { await api(`/api/v1/playlists/${playlist.id}`, { method:'DELETE' }); await loadLibrary(); } catch (error) { showToast(error.message); } }
 async function queuePlaylist(playlist) { for (const item of playlist.items) { try { await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url:item.source_url }) }); } catch (error) { showToast(error.message); break; } } await refresh(); }
 
-$('#add-form').addEventListener('submit', async event => {
-  event.preventDefault(); const form = new FormData(event.currentTarget);
-  try { const snapshot = await api('/api/v1/queue/items', { method: 'POST', body: JSON.stringify({ url: form.get('url'), display_name: form.get('display_name') }) }); render(snapshot); $('#stream-url').value = ''; showToast('Added to the house queue.'); }
-  catch (error) { showToast(error.message); }
-});
 $('#pause-button').addEventListener('click', () => control('/api/v1/playback/pause'));
 $('#resume-button').addEventListener('click', () => control('/api/v1/playback/resume'));
 $('#skip-button').addEventListener('click', async () => { try { const voted = state.snapshot?.skip_vote?.voted; render(await api('/api/v1/queue/skip', { method: voted ? 'DELETE' : 'POST', headers: revisionHeader() })); } catch (error) { showToast(error.message); refresh(); } });
@@ -294,7 +289,11 @@ async function runDiscovery(query) {
   if (known.status === 'fulfilled' && known.value.matches?.length) { const heading = document.createElement('h3'); heading.textContent = 'Known around the house'; local.append(heading); const grid = document.createElement('div'); grid.className = 'discovery-chips'; known.value.matches.forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'discovery-chip'; button.textContent = [item.hint?.artist,item.hint?.title].filter(Boolean).join(' — '); button.addEventListener('click', () => discover(button.textContent)); grid.append(button); }); local.append(grid); }
   if (youtube.status === 'fulfilled') { const body = youtube.value; $('#youtube-status').textContent = `${body.results.length} playable result${body.results.length === 1 ? '' : 's'} for ${query}`; body.results.forEach(item => { const card = document.createElement('article'); card.className = 'youtube-card'; if (item.thumbnail) { const image = document.createElement('img'); image.src = item.thumbnail; image.alt = ''; card.append(image); } const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = item.title; const meta = document.createElement('small'); meta.textContent = [item.channel, item.duration_seconds ? formatTime(item.duration_seconds) : ''].filter(Boolean).join(' · '); copy.append(title, meta); const button = document.createElement('button'); button.className = 'button button-primary'; button.textContent = 'Queue'; button.addEventListener('click', () => queueURL(item.url, item.title)); card.append(copy, button); results.append(card); }); } else { $('#youtube-status').textContent = youtube.reason.message; }
 }
-$('#youtube-search-form').addEventListener('submit', event => { event.preventDefault(); runDiscovery($('#youtube-query').value.trim()); });
+$('#youtube-search-form').addEventListener('submit', async event => {
+  event.preventDefault(); const query = $('#youtube-query').value.trim();
+  if (/^https?:\/\//i.test(query)) { await queueURL(query, 'Stream'); $('#youtube-query').value = ''; return; }
+  runDiscovery(query);
+});
 
 function renderSetupStep() { const steps = document.querySelectorAll('.setup-step'); steps.forEach((step, index) => { step.hidden = index !== state.setupStep; }); $('#setup-step-label').textContent = `Step ${state.setupStep + 1} of ${steps.length}`; $('#setup-back').hidden = state.setupStep === 0; $('#setup-next').hidden = state.setupStep === steps.length - 1; $('#setup-submit').hidden = state.setupStep !== steps.length - 1; $('#setup-next').textContent = state.setupStep === 0 ? 'Begin setup' : 'Continue'; if (state.setupStep === steps.length - 1) { const form = new FormData($('#setup-form')); $('#setup-review').textContent = `Administrator: ${form.get('username')} · Access: ${String(form.get('access_mode')).replaceAll('_',' ')} · Last.fm: ${form.get('lastfm_api_key') ? 'configured' : 'not configured'}`; } steps[state.setupStep].querySelector('input')?.focus(); }
 $('#setup-next').addEventListener('click', () => { if (state.setupStep === 2) { const inputs = document.querySelectorAll('[data-setup-step="2"] input'); if (![...inputs].every(input => input.reportValidity())) return; if (inputs[1].value !== inputs[2].value) return showToast('Passwords do not match.'); } state.setupStep++; renderSetupStep(); });
@@ -304,3 +303,4 @@ $('#setup-form').addEventListener('submit', async event => { event.preventDefaul
 window.addEventListener('hashchange', navigate);
 async function boot() { try { const setup = await api('/api/v1/setup/status'); if (!setup.installed) { $('#app-shell').hidden = true; $('#setup-shell').hidden = false; renderSetupStep(); return; } } catch (error) { showToast(error.message); } await Promise.all([refresh(), loadSession()]); connectEvents(); navigate(); }
 boot();
+setInterval(refresh, 30000);

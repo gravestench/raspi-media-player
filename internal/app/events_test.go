@@ -90,7 +90,7 @@ func TestHouseholdInterfaceIncludesAnonymousAndAccountFlows(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 	page := response.Body.String()
-	for _, expected := range []string{"What should we hear next?", "No account required", "The house queue", "OPTIONAL ACCOUNT", "Confirm your password", "aria-live"} {
+	for _, expected := range []string{"What should we hear next?", "Open music search", "Search or add a stream", "The house queue", "OPTIONAL ACCOUNT", "Confirm your password", "aria-live"} {
 		if !strings.Contains(page, expected) {
 			t.Fatalf("interface missing %q", expected)
 		}

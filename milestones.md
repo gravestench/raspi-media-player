@@ -582,6 +582,8 @@ milestone is revised:
   2026-08-04: guided installation/admin, encrypted configuration, role
   management, live skip voting, personal dashboards, integrated YouTube search,
   track-level stream history, and the responsive SPA redesign.
+- **Milestone 18:** Active-listener auto-queue, weighted artist/genre selection,
+  configurable queue depth, and unified search/URL entry.
 - **Current milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5

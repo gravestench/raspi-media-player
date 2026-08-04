@@ -80,6 +80,9 @@ First-run installation, administrator roles and settings, encrypted provider
 keys, skip voting, personal dashboards, and YouTube discovery are documented in
 [docs/administration.md](docs/administration.md).
 
+Weighted recommendations for active signed-in listeners and automatic queue
+depth management are documented in [docs/auto-queue.md](docs/auto-queue.md).
+
 ## Daemon deployment
 
 The init.d service assets and Raspberry Pi deployment helper live in `deploy/`

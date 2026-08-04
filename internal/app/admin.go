@@ -244,9 +244,19 @@ func validateSetting(key, value string) error {
 		if value != "mpv" && value != "fake" {
 			return errors.New("invalid player backend")
 		}
-	case "metadata_enabled", "vote_enabled", "youtube_search_enabled", "secure_cookie", "player_enabled":
+	case "metadata_enabled", "vote_enabled", "youtube_search_enabled", "secure_cookie", "player_enabled", "auto_queue_enabled":
 		if value != "true" && value != "false" {
 			return errors.New("value must be true or false")
+		}
+	case "auto_queue_depth":
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 20 {
+			return errors.New("auto-queue depth must be between 1 and 20")
+		}
+	case "auto_queue_active_seconds":
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 30 || parsed > 3600 {
+			return errors.New("active session window must be between 30 and 3600 seconds")
 		}
 	case "queue_limit", "queue_rate", "cache_seconds", "player_retries", "history_days", "metadata_cache_days", "metadata_max_inflight", "vote_active_seconds", "vote_timeout_seconds", "vote_percent", "youtube_search_results", "auth_rate", "session_days", "argon_memory", "argon_iterations":
 		parsed, err := strconv.Atoi(value)

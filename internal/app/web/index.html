@@ -92,18 +92,14 @@
       <div>
         <div class="section-label dark">ADD SOMETHING</div>
         <h2 id="add-heading">What should we hear next?</h2>
-        <p>Paste a YouTube, direct audio, or internet-radio URL. No account required.</p>
+        <p>Search for music or paste a YouTube, direct-audio, or internet-radio URL.</p>
       </div>
-      <form id="add-form" class="add-form">
-        <label><span>Stream URL</span><input id="stream-url" name="url" type="url" required placeholder="https://netcast.kfjc.org/…" autocomplete="url"></label>
-        <label><span>Your name <em>(optional)</em></span><input id="display-name" name="display_name" maxlength="64" placeholder="Anonymous housemate" autocomplete="nickname"></label>
-        <button class="button button-primary" type="submit">Add to queue <span aria-hidden="true">→</span></button>
-      </form>
+      <a class="button button-primary add-link" href="#discover">Open music search <span aria-hidden="true">→</span></a>
     </section>
 
     <section class="discovery-section app-page" data-page="discover" hidden aria-labelledby="youtube-heading">
-      <div class="section-label dark">DISCOVER</div><h2 id="youtube-heading">Search YouTube</h2><p>Find a video and queue its audio without leaving the jukebox. Direct YouTube URLs still work above.</p>
-      <form id="youtube-search-form" class="search-form"><label><span>Artist, song, or video</span><input id="youtube-query" type="search" required maxlength="120" placeholder="Search YouTube…" autocomplete="off"></label><button class="button button-primary" type="submit">Search</button></form>
+      <div class="section-label dark">DISCOVER</div><h2 id="youtube-heading">Search or add a stream</h2><p>Find music without leaving the jukebox, or paste a YouTube, direct-audio, or internet-radio URL.</p>
+      <form id="youtube-search-form" class="search-form"><label><span>Artist, song, video, or stream URL</span><input id="youtube-query" type="search" required maxlength="2048" placeholder="Search YouTube or paste https://…" autocomplete="off"></label><button class="button button-primary" type="submit">Continue</button></form>
       <div id="youtube-status" class="library-note" role="status"></div><div id="local-discovery" class="local-discovery" aria-live="polite"></div><div id="youtube-results" class="youtube-results" aria-live="polite"></div>
     </section>
 
@@ -134,7 +130,7 @@
         <div><div class="section-label dark">UP NEXT</div><h2 id="queue-heading">The house queue</h2></div>
         <button id="clear-button" class="button button-quiet dark-text" type="button">Clear queue</button>
       </div>
-      <div id="queue-empty" class="empty-state"><span aria-hidden="true">♬</span><h3>The queue is quiet</h3><p>Add a stream above and it will start playing on the living-room speaker.</p></div>
+      <div id="queue-empty" class="empty-state"><span aria-hidden="true">♬</span><h3>The queue is quiet</h3><p><a href="#discover">Search or add a stream</a> and it will start playing on the living-room speaker.</p></div>
       <ol id="queue-list" class="queue-list" aria-live="polite"></ol>
     </section>
 

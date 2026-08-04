@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/app"
+	"github.com/dylanknuth/raspi-media-player/internal/autoqueue"
 	"github.com/dylanknuth/raspi-media-player/internal/config"
 	"github.com/dylanknuth/raspi-media-player/internal/database"
 	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
@@ -130,7 +131,10 @@ func main() {
 		imageCache = enrichment.NewImageCache(cfg.MetadataImageDir, nil)
 	}
 	settingDefinitions := adminSettingDefinitions(cfg)
-	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore, Sources: sourceRegistry, Enrichment: metadataCoordinator, ImageCache: imageCache, SetupRequired: cfg.SetupRequired, Settings: settingDefinitions, SettingsSecretKey: cfg.SettingsSecretKey, YouTubeSearch: youtube.YTDLP{Binary: "yt-dlp", Timeout: 12 * time.Second}})
+	youtubeSearcher := youtube.YTDLP{Binary: "yt-dlp", Timeout: 12 * time.Second}
+	autoQueue := autoqueue.New(db, queuepkg.NewStore(db), storedSettings, youtubeSearcher, logger, cfg.QueueLimit)
+	go autoQueue.Run(ctx)
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore, Sources: sourceRegistry, Enrichment: metadataCoordinator, ImageCache: imageCache, SetupRequired: cfg.SetupRequired, Settings: settingDefinitions, SettingsSecretKey: cfg.SettingsSecretKey, YouTubeSearch: youtubeSearcher})
 	if err != nil {
 		logger.Error("application initialization failed", "error", err)
 		os.Exit(2)
@@ -184,6 +188,9 @@ func adminSettingDefinitions(cfg config.Config) []settings.Definition {
 		{Key: "argon_iterations", Label: "Password hash iterations", Description: "Argon2id iteration count.", Category: "Access", Type: "number", Value: fmt.Sprint(cfg.ArgonTime), RestartRequired: true},
 		{Key: "queue_limit", Label: "Queue limit", Description: "Maximum number of queued items.", Category: "Queue", Type: "number", Value: fmt.Sprint(cfg.QueueLimit), RestartRequired: true},
 		{Key: "queue_rate", Label: "Queue rate limit", Description: "Anonymous additions per client each minute.", Category: "Queue", Type: "number", Value: fmt.Sprint(cfg.QueueRate), RestartRequired: true},
+		{Key: "auto_queue_enabled", Label: "Auto-queue", Description: "Keep the queue filled from the weighted tastes of active signed-in listeners.", Category: "Auto-queue", Type: "boolean", Value: "false"},
+		{Key: "auto_queue_depth", Label: "Tracks kept ahead", Description: "Number of automatically selected tracks to keep waiting behind the current track.", Category: "Auto-queue", Type: "number", Value: "3"},
+		{Key: "auto_queue_active_seconds", Label: "Active session window", Description: "Seconds since a signed-in browser checked in to influence recommendations.", Category: "Auto-queue", Type: "number", Value: "300"},
 		{Key: "audio_device", Label: "Audio device", Description: "mpv/ALSA output device.", Category: "Playback", Type: "text", Value: cfg.AudioDevice, RestartRequired: true},
 		{Key: "player_enabled", Label: "Player enabled", Description: "Run the Raspberry Pi audio player.", Category: "Playback", Type: "boolean", Value: fmt.Sprint(cfg.PlayerEnabled), RestartRequired: true},
 		{Key: "player_backend", Label: "Player backend", Description: "Audio engine used by the daemon.", Category: "Playback", Type: "select", Value: cfg.PlayerBackend, Options: []string{"mpv", "fake"}, RestartRequired: true},

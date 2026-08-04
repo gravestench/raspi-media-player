@@ -9,6 +9,25 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/settings"
 )
 
+func TestValidateAutoQueueSettings(t *testing.T) {
+	for _, test := range []struct {
+		key, value string
+		valid      bool
+	}{
+		{"auto_queue_enabled", "true", true},
+		{"auto_queue_enabled", "sometimes", false},
+		{"auto_queue_depth", "1", true},
+		{"auto_queue_depth", "21", false},
+		{"auto_queue_active_seconds", "30", true},
+		{"auto_queue_active_seconds", "29", false},
+	} {
+		err := validateSetting(test.key, test.value)
+		if (err == nil) != test.valid {
+			t.Errorf("validateSetting(%q, %q) error=%v valid=%v", test.key, test.value, err, test.valid)
+		}
+	}
+}
+
 func TestGuidedSetupCreatesAdminAndProtectsConfiguration(t *testing.T) {
 	var logs bytes.Buffer
 	handler := testHandler(t, &logs, Options{
