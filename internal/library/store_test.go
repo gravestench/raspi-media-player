@@ -69,3 +69,32 @@ func TestHouseholdStationsPersonalLibraryAndHistory(t *testing.T) {
 		t.Fatalf("history: %+v %v", history, err)
 	}
 }
+
+func TestStreamMetadataCreatesDistinctHistorySegments(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "stream-history.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := NewStore(db, 90*24*time.Hour)
+	ctx := context.Background()
+	if _, err := store.RecordStarted(ctx, "radio-queue", "direct", "https://radio.example/stream", ""); err != nil {
+		t.Fatal(err)
+	}
+	if rotated, err := store.RecordTitleChanged(ctx, "radio-queue", "Artist One - First Song"); err != nil || rotated {
+		t.Fatalf("first title rotated=%v err=%v", rotated, err)
+	}
+	if _, err := db.Exec(`UPDATE playback_history SET started_at = ? WHERE queue_item_id = ?`, time.Now().Add(-10*time.Second).UTC().Format(time.RFC3339Nano), "radio-queue"); err != nil {
+		t.Fatal(err)
+	}
+	if rotated, err := store.RecordTitleChanged(ctx, "radio-queue", "Artist Two - Next Song"); err != nil || !rotated {
+		t.Fatalf("second title rotated=%v err=%v", rotated, err)
+	}
+	if rotated, err := store.RecordTitleChanged(ctx, "radio-queue", "Artist Two - Next Song"); err != nil || rotated {
+		t.Fatalf("duplicate rotated=%v err=%v", rotated, err)
+	}
+	history, err := store.ListHistory(ctx, "", 10)
+	if err != nil || len(history) != 2 || history[0].Title != "Artist Two - Next Song" || history[1].Title != "Artist One - First Song" {
+		t.Fatalf("history=%+v err=%v", history, err)
+	}
+}

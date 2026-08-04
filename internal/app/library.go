@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/dylanknuth/raspi-media-player/internal/library"
@@ -12,6 +13,69 @@ type stationRequest struct {
 	Name      string `json:"name"`
 	StreamURL string `json:"stream_url"`
 }
+
+func (a *application) accountDashboard(w http.ResponseWriter, r *http.Request) {
+	identity := requireIdentity(w, r)
+	if identity == nil {
+		return
+	}
+	userID := identity.Session.User.ID
+	history, err := a.library.ListUserHistory(r.Context(), userID, 100)
+	if err != nil {
+		a.internalError(w, r, "list account history", err)
+		return
+	}
+	stations, err := a.library.ListStations(r.Context(), userID, "")
+	if err != nil {
+		a.internalError(w, r, "list account stations", err)
+		return
+	}
+	favorites := make([]library.Station, 0)
+	for _, station := range stations {
+		if station.Favorite {
+			favorites = append(favorites, station)
+		}
+	}
+	playlists, err := a.library.ListPlaylists(r.Context(), userID, "")
+	if err != nil {
+		a.internalError(w, r, "list account playlists", err)
+		return
+	}
+	genreCounts := map[string]int{}
+	if a.enrichment != nil {
+		for _, item := range history {
+			if item.Title == "" {
+				continue
+			}
+			value, lookupErr := a.enrichment.Lookup(r.Context(), item.Title)
+			if lookupErr != nil || value.Status != "ready" {
+				continue
+			}
+			for _, genre := range value.Genres {
+				genreCounts[genre]++
+			}
+		}
+	}
+	type genreCount struct {
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+	}
+	genres := make([]genreCount, 0, len(genreCounts))
+	for name, count := range genreCounts {
+		genres = append(genres, genreCount{Name: name, Count: count})
+	}
+	sort.Slice(genres, func(i, j int) bool {
+		if genres[i].Count == genres[j].Count {
+			return genres[i].Name < genres[j].Name
+		}
+		return genres[i].Count > genres[j].Count
+	})
+	if len(genres) > 20 {
+		genres = genres[:20]
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": identity.Session.User, "genres": genres, "recent": history, "favorites": favorites, "playlists": playlists})
+}
+
 type favoriteRequest struct {
 	Favorite bool `json:"favorite"`
 }

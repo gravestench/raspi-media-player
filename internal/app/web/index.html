@@ -8,11 +8,46 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <section id="setup-shell" class="setup-shell" hidden aria-labelledby="setup-heading">
+    <div class="setup-progress"><span class="brand-mark" aria-hidden="true">♪</span><span id="setup-step-label">Step 1 of 5</span></div>
+    <form id="setup-form" class="setup-card">
+      <div class="setup-step" data-setup-step="0">
+        <p class="eyebrow">WELCOME HOME</p><h1 id="setup-heading">Set up your house jukebox</h1>
+        <p>This short guided installation creates the first administrator and chooses how people in your home can use the player.</p>
+      </div>
+      <div class="setup-step" data-setup-step="1" hidden>
+        <p class="eyebrow">HOUSEHOLD ACCESS</p><h1>Who can add music?</h1>
+        <label class="choice"><input type="radio" name="access_mode" value="open" checked><span><strong>Everyone at home</strong><small>Anonymous queueing stays available; accounts are optional.</small></span></label>
+        <label class="choice"><input type="radio" name="access_mode" value="accounts_optional"><span><strong>Mostly open</strong><small>Keep listening open while reserving selected actions for accounts.</small></span></label>
+        <label class="choice"><input type="radio" name="access_mode" value="accounts_required"><span><strong>Accounts required</strong><small>Require a local account for changes to playback or the queue.</small></span></label>
+      </div>
+      <div class="setup-step" data-setup-step="2" hidden>
+        <p class="eyebrow">ADMINISTRATOR</p><h1>Create the first admin</h1><p>No email address is needed.</p>
+        <label><span>Username</span><input name="username" required minlength="2" maxlength="32" autocomplete="username"></label>
+        <label><span>Password</span><input name="password" type="password" required minlength="8" maxlength="256" autocomplete="new-password"></label>
+        <label><span>Password again</span><input name="password_confirmation" type="password" required minlength="8" maxlength="256" autocomplete="new-password"></label>
+      </div>
+      <div class="setup-step" data-setup-step="3" hidden>
+        <p class="eyebrow">ARTIST INFORMATION</p><h1>Connect Last.fm <em>optionally</em></h1>
+        <p>Add biographies, genre tags, and related artists. You can skip this and configure it later.</p>
+        <label><span>Last.fm API key</span><input name="lastfm_api_key" type="password" autocomplete="off" spellcheck="false"></label>
+        <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer">Create a Last.fm API key ↗</a>
+      </div>
+      <div class="setup-step" data-setup-step="4" hidden>
+        <p class="eyebrow">READY TO PLAY</p><h1>Review and finish</h1>
+        <p>The player will remain available only on the network address chosen by the operator. Configuration and administrator roles can be changed later from Admin.</p>
+        <div id="setup-review" class="review-card"></div><p id="setup-error" class="form-error" role="alert"></p>
+      </div>
+      <div class="setup-actions"><button id="setup-back" class="button button-quiet dark-text" type="button" hidden>Back</button><button id="setup-next" class="button button-primary" type="button">Begin setup</button><button id="setup-submit" class="button button-primary" type="submit" hidden>Finish installation</button></div>
+    </form>
+  </section>
+  <div id="app-shell">
   <header class="site-header">
     <a class="brand" href="/" aria-label="House Jukebox home">
       <span class="brand-mark" aria-hidden="true">♪</span>
       <span>House Jukebox</span>
     </a>
+    <nav class="primary-nav" aria-label="Primary"><a href="#home">Player</a><a href="#discover">Discover</a><a href="#library">Library</a><a href="#account" data-auth-nav hidden>Account</a><a href="#admin" data-admin-nav hidden>Admin</a></nav>
     <div class="header-actions">
       <span id="connection-status" class="connection" role="status"><span aria-hidden="true"></span> Connecting</span>
       <button id="account-button" class="button button-quiet" type="button">Log in</button>
@@ -20,7 +55,7 @@
   </header>
 
   <main>
-    <section class="now-playing" aria-labelledby="now-playing-heading">
+    <section class="now-playing app-page" data-page="home" aria-labelledby="now-playing-heading">
       <div class="section-label"><span></span> NOW PLAYING</div>
       <div class="now-grid">
         <div class="artwork" aria-hidden="true"><span>♫</span></div>
@@ -41,12 +76,13 @@
             <button id="skip-button" class="round-control" type="button" aria-label="Skip current item">›|</button>
             <label class="volume-control"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="100" aria-label="Volume"><output id="volume-output">100</output></label>
           </div>
+          <p id="vote-status" class="vote-status" role="status" hidden></p>
           <p id="playback-state" class="subtle" role="status"></p>
         </div>
       </div>
     </section>
 
-    <section class="add-card" aria-labelledby="add-heading">
+    <section class="add-card app-page" data-page="home" aria-labelledby="add-heading">
       <div>
         <div class="section-label dark">ADD SOMETHING</div>
         <h2 id="add-heading">What should we hear next?</h2>
@@ -59,7 +95,13 @@
       </form>
     </section>
 
-    <section class="library-section" aria-labelledby="stations-heading">
+    <section class="discovery-section app-page" data-page="discover" hidden aria-labelledby="youtube-heading">
+      <div class="section-label dark">DISCOVER</div><h2 id="youtube-heading">Search YouTube</h2><p>Find a video and queue its audio without leaving the jukebox. Direct YouTube URLs still work above.</p>
+      <form id="youtube-search-form" class="search-form"><label><span>Artist, song, or video</span><input id="youtube-query" type="search" required maxlength="120" placeholder="Search YouTube…" autocomplete="off"></label><button class="button button-primary" type="submit">Search</button></form>
+      <div id="youtube-status" class="library-note" role="status"></div><div id="youtube-results" class="youtube-results" aria-live="polite"></div>
+    </section>
+
+    <section class="library-section app-page" data-page="library" hidden aria-labelledby="stations-heading">
       <div class="library-heading">
         <div><div class="section-label dark">YOUR SOUND SHELF</div><h2 id="stations-heading">Stations &amp; saved music</h2></div>
         <label class="search-label"><span>Search library</span><input id="library-search" type="search" placeholder="Stations, playlists, history…"></label>
@@ -81,7 +123,7 @@
       <details class="history-panel"><summary>Recent listening history</summary><ol id="history-list"></ol></details>
     </section>
 
-    <section class="queue-section" aria-labelledby="queue-heading">
+    <section class="queue-section app-page" data-page="home" aria-labelledby="queue-heading">
       <div class="queue-heading-row">
         <div><div class="section-label dark">UP NEXT</div><h2 id="queue-heading">The house queue</h2></div>
         <button id="clear-button" class="button button-quiet dark-text" type="button">Clear queue</button>
@@ -89,10 +131,14 @@
       <div id="queue-empty" class="empty-state"><span aria-hidden="true">♬</span><h3>The queue is quiet</h3><p>Add a stream above and it will start playing on the living-room speaker.</p></div>
       <ol id="queue-list" class="queue-list" aria-live="polite"></ol>
     </section>
+
+    <section id="account-page" class="dashboard-section app-page" data-page="account" hidden aria-labelledby="account-heading"><div class="section-label dark">YOUR LISTENING</div><h2 id="account-heading">Account</h2><div id="account-dashboard" class="dashboard-grid"></div></section>
+    <section id="admin-page" class="dashboard-section app-page" data-page="admin" hidden aria-labelledby="admin-heading"><div class="section-label dark">HOUSE CONTROLS</div><h2 id="admin-heading">Administration</h2><p>Only administrators can see or change these settings.</p><div id="admin-settings"></div><div class="admin-users"><h3>Administrators</h3><div id="admin-user-list"></div></div></section>
   </main>
 
   <footer><span>Playing on the living-room Raspberry Pi</span><span id="footer-identity">Browsing anonymously</span></footer>
   <div id="toast" class="toast" role="alert" aria-live="assertive" hidden></div>
+  <nav class="mobile-nav" aria-label="Primary"><a href="#home">Player</a><a href="#discover">Search</a><a href="#library">Library</a><a href="#account" data-auth-nav hidden>Account</a><a href="#admin" data-admin-nav hidden>Admin</a></nav>
 
   <dialog id="auth-dialog" aria-labelledby="auth-title">
     <button id="auth-close" class="dialog-close" type="button" aria-label="Close">×</button>
@@ -116,6 +162,7 @@
       <button id="signup-back" class="button button-quiet full dark-text" type="button">Use a different username</button>
     </form>
   </dialog>
+  </div>
 
   <script src="/app.js"></script>
 </body>

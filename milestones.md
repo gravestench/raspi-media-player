@@ -383,6 +383,163 @@ Acceptance criteria:
 
 ---
 
+## Milestone 12 — Guided installation and administration
+
+Goal: make a fresh appliance safe and understandable to configure entirely from
+a phone or desktop browser.
+
+- [ ] Detect an uninstalled database and route browsers to a full-screen,
+      one-question-at-a-time installation wizard.
+- [ ] Explain privacy, network exposure, playback, access modes, and optional
+      external metadata before asking for configuration.
+- [ ] Create the first local account as an administrator and sign it in when
+      installation completes.
+- [ ] Store runtime settings and encrypted/redacted secrets separately from
+      deployment-only bootstrap settings.
+- [ ] Add administrator-only APIs and SPA routes for general, access, playback,
+      metadata, retention, queue, and voting configuration.
+- [ ] Manage the Last.fm API key with masked reads, explicit replacement/removal,
+      connection testing, and links to official setup documentation.
+- [ ] Add an administrator user list and allow admins to grant or revoke the
+      admin role, while preventing removal of the final administrator.
+- [ ] Require a current admin session and CSRF protection for every admin route;
+      never return or log stored secrets.
+- [ ] Make setup and administration keyboard-, screen-reader-, phone-, and
+      desktop-accessible.
+- [ ] Document first boot, recovery, configuration precedence, secret storage,
+      and administrator operations.
+
+Acceptance criteria:
+
+- A clean database cannot enter the player until an initial administrator is
+  created, while an upgraded database remains usable.
+- Non-admin and anonymous requests cannot read or mutate administrative state.
+- A Last.fm key can be installed and tested without appearing in API responses,
+  HTML, logs, or browser storage.
+
+## Milestone 13 — Household skip voting
+
+Goal: let active listeners democratically skip an unwanted item without making
+single-listener households cumbersome.
+
+- [ ] Track recently active anonymous browser identities and signed-in users
+      without creating permanent surveillance identifiers.
+- [ ] Add one skip vote per active identity per playback item and expose the
+      current count, threshold, voters' own state, and expiry.
+- [ ] Skip immediately when only one listener is active; otherwise calculate a
+      configurable quorum/percentage threshold.
+- [ ] Broadcast votes and threshold changes immediately over the existing event
+      stream.
+- [ ] Expire votes after a configurable timeout and clear them on item change,
+      stop, or successful skip.
+- [ ] Add admin settings for enabling voting, active-window length, vote timeout,
+      quorum percentage, and optional administrator override.
+- [ ] Replace direct skip controls with clear vote/unvote affordances where the
+      configured policy requires it.
+- [ ] Add concurrency, reconnect, expiry, identity, and threshold tests.
+
+Acceptance criteria:
+
+- Every connected UI reflects a new or withdrawn vote without refreshing.
+- Votes never carry over to another song and inactive clients stop affecting the
+  threshold.
+- A lone active listener can skip with one action.
+
+## Milestone 14 — Personal listening dashboard
+
+Goal: give each account a useful view of its listening and saved music.
+
+- [ ] Add an authenticated account route with profile and session-management
+      basics.
+- [ ] Show recent submissions/listens, favorites, stations, and playlists in one
+      responsive dashboard.
+- [ ] Derive a genre/tag breakdown from enriched listening history with clear
+      empty and partial-data states.
+- [ ] Allow supported recent items, favorites, stations, and playlist entries to
+      be queued directly from the account page.
+- [ ] Keep personal statistics private to the account except for existing shared
+      queue attribution.
+- [ ] Add pagination/bounds so history aggregation remains inexpensive.
+
+Acceptance criteria:
+
+- A signed-in user can understand their recent listening tastes and requeue an
+  item without leaving the dashboard.
+- Anonymous and other-user requests cannot read a profile's private data.
+
+## Milestone 15 — Integrated YouTube discovery
+
+Goal: search and queue YouTube audio without leaving the jukebox.
+
+- [ ] Add a YouTube search adapter with bounded queries, safe-process execution,
+      timeouts, and stable result models.
+- [ ] Add a debounced search UI with thumbnails, title/channel/duration, loading,
+      empty, and failure states.
+- [ ] Queue a selected result through the existing validated YouTube source
+      adapter and preserve submitter attribution.
+- [ ] Keep direct YouTube URL input available alongside search.
+- [ ] Add admin controls to enable search, cap results, and configure the search
+      backend without exposing secrets.
+- [ ] Add adapter contract, injection, timeout, queueing, and browser tests.
+
+Acceptance criteria:
+
+- A household member can search, inspect results, and enqueue a video's audio in
+  the same page.
+- Search failure never disables URL, station, or direct-stream queueing.
+
+## Milestone 16 — Track-level stream history and metadata polish
+
+Goal: treat changing radio metadata as real listening events and make enrichment
+useful at a glance.
+
+- [ ] Detect meaningful stream-title changes while one radio queue item remains
+      active and debounce duplicate/noisy metadata.
+- [ ] Close the previous track-history segment and create a new immutable segment
+      without advancing or rewriting the shared queue item.
+- [ ] Enrich each detected track asynchronously and retain its normalized raw
+      title, timestamps, station/source, and attribution.
+- [ ] Display genre tags compactly in now-playing and history views.
+- [ ] Add tests for repeated metadata, rapid changes, missing metadata, restarts,
+      and stream-to-finite-item transitions.
+
+Acceptance criteria:
+
+- Two successive songs on a radio stream appear as two recent-history entries
+  even though playback never stopped.
+- Metadata noise cannot flood history and metadata processing cannot interrupt
+  playback.
+
+## Milestone 17 — Responsive single-page player redesign
+
+Goal: make the player, setup, admin, discovery, and account experiences feel
+like one fast, expressive household appliance.
+
+- [ ] Establish client-side routes and shared application state without breaking
+      deep links, refreshes, anonymous use, or progressive loading.
+- [ ] Redesign now-playing information into a compact hierarchy with artwork,
+      title, artist, genres, attribution, progress, and primary controls.
+- [ ] Make queue, search, library, account, and admin destinations easy to reach
+      with phone bottom navigation and space-efficient desktop navigation.
+- [ ] Add purposeful CSS3 transitions, artwork treatments, live vote feedback,
+      loading skeletons, and reduced-motion equivalents.
+- [ ] Remove duplicated labels, oversized empty regions, and visually noisy
+      metadata while retaining details behind accessible disclosure controls.
+- [ ] Verify keyboard navigation, focus management, contrast, landmarks, touch
+      targets, screen-reader names, and 320px through wide-desktop layouts.
+- [ ] Add browser smoke tests for anonymous, account, admin, setup, search,
+      voting, offline/reconnect, and reduced-motion flows.
+
+Acceptance criteria:
+
+- The primary now-playing and queue actions remain readable and reachable on a
+  phone without wasted space or horizontal scrolling.
+- Desktop uses available space without turning metadata into an unstructured
+  wall of content.
+- Animation communicates state and respects `prefers-reduced-motion`.
+
+---
+
 ## Deferred ideas
 
 These are intentionally outside the first household-ready release unless a
@@ -421,7 +578,9 @@ milestone is revised:
 - **Milestone 11:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04, including live multi-provider enrichment, attributed local image
   caching, API/browser validation, and uninterrupted playback.
-- **Current milestone:** Household feedback and ongoing maintenance
+- **Current milestone:** Milestone 12 — Guided installation and administration
+- **Planned milestones:** 13 skip voting; 14 personal dashboard; 15 integrated
+  YouTube discovery; 16 stream-history fixes; 17 responsive SPA redesign.
 - **Next feature milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5

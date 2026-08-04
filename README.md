@@ -72,6 +72,10 @@ documented in [docs/sources.md](docs/sources.md).
 Artist photos, genres, biographies, related artists, and Last.fm key setup are
 documented in [docs/enrichment.md](docs/enrichment.md).
 
+First-run installation, administrator roles and settings, encrypted provider
+keys, skip voting, personal dashboards, and YouTube discovery are documented in
+[docs/administration.md](docs/administration.md).
+
 ## Daemon deployment
 
 The init.d service assets and Raspberry Pi deployment helper live in `deploy/`

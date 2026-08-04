@@ -21,7 +21,7 @@ if [ -n "${TEST_SERVER_BINARY:-}" ]; then
     REQUIRED_TMP=$AUTH_TMP/required
     REQUIRED_PORT=${TEST_REQUIRED_PORT:-18081}
     mkdir -p "$REQUIRED_TMP"
-    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$REQUIRED_PORT" -db "$REQUIRED_TMP/test.sqlite" -access-mode accounts_required >"$REQUIRED_TMP/server.log" 2>&1 &
+    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$REQUIRED_PORT" -db "$REQUIRED_TMP/test.sqlite" -access-mode accounts_required -setup-required=false >"$REQUIRED_TMP/server.log" 2>&1 &
     REQUIRED_PID=$!
     attempt=0
     until curl --silent --fail "http://127.0.0.1:$REQUIRED_PORT/api/v1/health/ready" >/dev/null; do

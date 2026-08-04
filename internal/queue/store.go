@@ -52,9 +52,20 @@ type PlaybackState struct {
 }
 
 type Snapshot struct {
-	Revision int64         `json:"revision"`
-	Items    []Item        `json:"items"`
-	Playback PlaybackState `json:"playback"`
+	Revision int64          `json:"revision"`
+	Items    []Item         `json:"items"`
+	Playback PlaybackState  `json:"playback"`
+	SkipVote *SkipVoteState `json:"skip_vote,omitempty"`
+}
+
+type SkipVoteState struct {
+	Enabled         bool   `json:"enabled"`
+	CurrentItemID   string `json:"current_item_id,omitempty"`
+	Votes           int    `json:"votes"`
+	Required        int    `json:"required"`
+	ActiveListeners int    `json:"active_listeners"`
+	Voted           bool   `json:"voted"`
+	ExpiresAt       string `json:"expires_at,omitempty"`
 }
 
 type Store struct{ db *sql.DB }

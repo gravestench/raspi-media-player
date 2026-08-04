@@ -30,6 +30,7 @@ func (a *application) events(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
+		a.attachVote(r, &snapshot)
 		encoded, err := json.Marshal(snapshot)
 		if err != nil {
 			return err

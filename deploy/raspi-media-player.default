@@ -28,3 +28,7 @@ RASPI_MEDIA_PLAYER_METADATA_CACHE_DAYS=7
 RASPI_MEDIA_PLAYER_METADATA_USER_AGENT='raspi-media-player/0.1 (https://github.com/dylanknuth/raspi-media-player)'
 RASPI_MEDIA_PLAYER_METADATA_IMAGE_DIR=/var/lib/raspi-media-player/artist-images
 RASPI_MEDIA_PLAYER_METADATA_MAX_INFLIGHT=2
+RASPI_MEDIA_PLAYER_SETUP_REQUIRED=true
+# Generate a long random value during first installation. Required before API
+# keys can be saved through the administrator UI.
+RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=

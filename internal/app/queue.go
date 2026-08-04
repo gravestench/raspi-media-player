@@ -34,6 +34,7 @@ func (a *application) getQueue(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, "list queue", err)
 		return
 	}
+	a.attachVote(r, &snapshot)
 	writeSnapshot(w, http.StatusOK, snapshot)
 }
 
@@ -124,17 +125,11 @@ func (a *application) clearQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *application) skipQueueItem(w http.ResponseWriter, r *http.Request) {
-	revision, ok := requiredRevision(w, r)
-	if !ok {
-		return
-	}
-	snapshot, err := a.queue.Skip(r.Context(), revision)
-	if err != nil {
-		a.queueError(w, r, err)
-		return
-	}
-	loggerFromContext(r.Context(), a.logger).Info("queue item skipped", "queue_revision", snapshot.Revision)
-	writeSnapshot(w, http.StatusOK, snapshot)
+	a.voteToSkip(w, r, true)
+}
+
+func (a *application) withdrawSkipVote(w http.ResponseWriter, r *http.Request) {
+	a.voteToSkip(w, r, false)
 }
 
 func writeSnapshot(w http.ResponseWriter, status int, snapshot queuepkg.Snapshot) {

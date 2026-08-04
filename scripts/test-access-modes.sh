@@ -12,7 +12,7 @@ trap cleanup EXIT INT TERM
 
 start_mode() {
     mode=$1 port=$2
-    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$port" -db "$MODE_TMP/$mode.sqlite" -access-mode "$mode" -player-enabled=false >"$MODE_TMP/$mode.log" 2>&1 &
+    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$port" -db "$MODE_TMP/$mode.sqlite" -access-mode "$mode" -player-enabled=false -setup-required=false >"$MODE_TMP/$mode.log" 2>&1 &
     pid=$!; PIDS="$PIDS $pid"
     attempt=0
     until curl --silent --fail "http://127.0.0.1:$port/api/v1/health/ready" >/dev/null; do

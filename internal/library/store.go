@@ -301,12 +301,87 @@ func (s *Store) RecordFinished(ctx context.Context, queueItemID, title, outcome 
 	}
 	return nil
 }
+
+func (s *Store) RecordTitleChanged(ctx context.Context, queueItemID, title string) (bool, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return false, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var id, existing, kind, sourceURL, startedAt string
+	var submitter sql.NullString
+	err = tx.QueryRowContext(ctx, `SELECT id, title, source_kind, source_url, started_at, submitter_user_id FROM playback_history WHERE queue_item_id = ? AND finished_at IS NULL ORDER BY started_at DESC LIMIT 1`, queueItemID).Scan(&id, &existing, &kind, &sourceURL, &startedAt, &submitter)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if strings.EqualFold(strings.TrimSpace(existing), title) {
+		return false, nil
+	}
+	if existing == "" {
+		_, err = tx.ExecContext(ctx, `UPDATE playback_history SET title = ? WHERE id = ?`, title, id)
+		return false, commitOrError(tx, err)
+	}
+	started, _ := time.Parse(time.RFC3339Nano, startedAt)
+	if !started.IsZero() && time.Since(started) < 5*time.Second {
+		return false, nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := tx.ExecContext(ctx, `UPDATE playback_history SET finished_at = ?, outcome = 'completed' WHERE id = ?`, now, id); err != nil {
+		return false, err
+	}
+	newID := newID()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO playback_history (id, queue_item_id, source_kind, source_url, title, submitter_user_id, started_at, outcome) VALUES (?, ?, ?, ?, ?, ?, ?, 'playing')`, newID, queueItemID, kind, sourceURL, title, nullableString(submitter), now); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
+}
+
+func nullableString(value sql.NullString) any {
+	if value.Valid {
+		return value.String
+	}
+	return nil
+}
+
+func commitOrError(tx *sql.Tx, err error) error {
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 func (s *Store) ListHistory(ctx context.Context, query string, limit int) ([]HistoryItem, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 	pattern := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
 	rows, err := s.db.QueryContext(ctx, `SELECT id, queue_item_id, source_kind, source_url, title, COALESCE(submitter_user_id, ''), started_at, COALESCE(finished_at, ''), outcome, playback_error FROM playback_history WHERE lower(title) LIKE ? OR lower(source_url) LIKE ? ORDER BY started_at DESC LIMIT ?`, pattern, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]HistoryItem, 0)
+	for rows.Next() {
+		var value HistoryItem
+		if err := rows.Scan(&value.ID, &value.QueueItemID, &value.SourceKind, &value.SourceURL, &value.Title, &value.SubmitterUserID, &value.StartedAt, &value.FinishedAt, &value.Outcome, &value.Error); err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) ListUserHistory(ctx context.Context, userID string, limit int) ([]HistoryItem, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id, queue_item_id, source_kind, source_url, title, COALESCE(submitter_user_id, ''), started_at, COALESCE(finished_at, ''), outcome, playback_error FROM playback_history WHERE submitter_user_id = ? ORDER BY started_at DESC LIMIT ?`, userID, limit)
 	if err != nil {
 		return nil, err
 	}

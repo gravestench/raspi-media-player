@@ -12,7 +12,11 @@ cleanup() {
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    rm -rf "$TEST_TMP"
+    if [ "${KEEP_TEST_TMP:-0}" != 1 ]; then
+        rm -rf "$TEST_TMP"
+    else
+        echo "Preserved test artifacts at $TEST_TMP" >&2
+    fi
 }
 trap cleanup EXIT INT TERM
 
@@ -25,6 +29,7 @@ export TEST_SERVER_BINARY="$TEST_TMP/raspi-media-player"
     -player-enabled=true \
     -player-backend=fake \
 	-metadata-enabled=false \
+	-setup-required=false \
     -log-format json >"$TEST_TMP/server.log" 2>&1 &
 SERVER_PID=$!
 
@@ -48,4 +53,5 @@ TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-enrichment.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-validation.sh"
 TEST_BASE_URL="$TEST_BASE_URL" TEST_SERVER_BINARY="$TEST_SERVER_BINARY" "$PROJECT_ROOT/scripts/test-access-modes.sh"
 TEST_SERVER_BINARY="$TEST_SERVER_BINARY" "$PROJECT_ROOT/scripts/test-persistence.sh"
+TEST_SERVER_BINARY="$TEST_SERVER_BINARY" "$PROJECT_ROOT/scripts/test-admin-setup.sh"
 echo "All API regression tests passed."

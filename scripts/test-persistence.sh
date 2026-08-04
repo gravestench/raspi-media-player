@@ -10,7 +10,7 @@ cleanup() { [ -z "$PID" ] || { kill "$PID" 2>/dev/null || true; wait "$PID" 2>/d
 trap cleanup EXIT INT TERM
 
 start_server() {
-    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$PORT" -db "$PERSIST_TMP/player.sqlite" -player-enabled=false -queue-rate 100 >"$PERSIST_TMP/server.log" 2>&1 & PID=$!
+    "$TEST_SERVER_BINARY" -addr "127.0.0.1:$PORT" -db "$PERSIST_TMP/player.sqlite" -player-enabled=false -queue-rate 100 -setup-required=false >"$PERSIST_TMP/server.log" 2>&1 & PID=$!
     attempt=0
     until curl --silent --fail "$BASE/api/v1/health/ready" >/dev/null; do attempt=$((attempt + 1)); [ "$attempt" -lt 50 ] || { echo "persistence server failed to start" >&2; exit 1; }; sleep 0.1; done
 }

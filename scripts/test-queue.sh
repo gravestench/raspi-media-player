@@ -3,7 +3,7 @@ set -eu
 
 TEST_BASE_URL=${TEST_BASE_URL:-http://127.0.0.1:8080}
 
-response=$(curl --silent --fail --request POST \
+response=$(curl --silent --show-error --fail --request POST \
     --header 'Content-Type: application/json' \
     --data '{"url":"https://netcast.kfjc.org/kfjc-128k-mp3","display_name":"API test"}' \
     "$TEST_BASE_URL/api/v1/queue/items")
@@ -16,7 +16,7 @@ status=$(curl --silent --output /dev/null --write-out '%{http_code}' --request D
     --header 'If-Match: "0"' "$TEST_BASE_URL/api/v1/queue/items/$item_id")
 [ "$status" = 409 ] || { echo "stale revision: expected 409, got $status" >&2; exit 1; }
 
-response=$(curl --silent --fail --request POST --header 'If-Match: "1"' \
+response=$(curl --silent --show-error --fail --request POST --header 'If-Match: "1"' \
     "$TEST_BASE_URL/api/v1/queue/skip")
 [ "$(printf '%s' "$response" | jq -r '.items | length')" = 0 ] || { echo "skip did not empty queue" >&2; exit 1; }
 

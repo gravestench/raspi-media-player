@@ -12,6 +12,7 @@ import (
 
 const sessionCookieName = "jukebox_session"
 const csrfCookieName = "jukebox_csrf"
+const listenerCookieName = "jukebox_listener"
 
 type identityKey struct{}
 type Identity struct{ Session auth.Session }
@@ -30,6 +31,9 @@ type credentialsRequest struct {
 
 func (a *application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := r.Cookie(listenerCookieName); err != nil {
+			http.SetCookie(w, &http.Cookie{Name: listenerCookieName, Value: newRequestID(), Path: "/", SameSite: http.SameSiteStrictMode, MaxAge: 365 * 24 * 60 * 60})
+		}
 		cookie, err := r.Cookie(sessionCookieName)
 		if err == nil {
 			session, resolveErr := a.auth.ResolveSession(r.Context(), cookie.Value)

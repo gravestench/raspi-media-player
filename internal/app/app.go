@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/auth"
@@ -17,7 +18,9 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+	"github.com/dylanknuth/raspi-media-player/internal/settings"
 	"github.com/dylanknuth/raspi-media-player/internal/source"
+	"github.com/dylanknuth/raspi-media-player/internal/youtube"
 )
 
 //go:embed web/*
@@ -43,22 +46,30 @@ type application struct {
 	sources     source.Resolver
 	enrichment  *enrichment.Coordinator
 	imageCache  *enrichment.ImageCache
+	settings    *settings.Store
+	installed   atomic.Bool
+	votes       *voteManager
+	youtube     youtube.Searcher
 }
 
 type Options struct {
-	QueueLimit      int
-	QueueRate       int
-	AccessMode      string
-	AuthRate        int
-	SessionLifetime time.Duration
-	SecureCookie    bool
-	ArgonMemory     uint32
-	ArgonIterations uint32
-	Playback        *playback.Controller
-	Library         *library.Store
-	Sources         source.Resolver
-	Enrichment      *enrichment.Coordinator
-	ImageCache      *enrichment.ImageCache
+	QueueLimit        int
+	QueueRate         int
+	AccessMode        string
+	AuthRate          int
+	SessionLifetime   time.Duration
+	SecureCookie      bool
+	ArgonMemory       uint32
+	ArgonIterations   uint32
+	Playback          *playback.Controller
+	Library           *library.Store
+	Sources           source.Resolver
+	Enrichment        *enrichment.Coordinator
+	ImageCache        *enrichment.ImageCache
+	SetupRequired     bool
+	Settings          []settings.Definition
+	SettingsSecretKey string
+	YouTubeSearch     youtube.Searcher
 }
 
 type requestLoggerKey struct{}
@@ -100,6 +111,10 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 		opts.Sources = provided.Sources
 		opts.Enrichment = provided.Enrichment
 		opts.ImageCache = provided.ImageCache
+		opts.SetupRequired = provided.SetupRequired
+		opts.Settings = provided.Settings
+		opts.SettingsSecretKey = provided.SettingsSecretKey
+		opts.YouTubeSearch = provided.YouTubeSearch
 	}
 	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
 		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
@@ -113,17 +128,39 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	if opts.Sources == nil {
 		opts.Sources = source.DirectRegistry()
 	}
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources, enrichment: opts.Enrichment, imageCache: opts.ImageCache}
+	authStore := auth.NewStore(db, params, opts.SessionLifetime)
+	settingsStore, err := settings.NewStore(db, opts.Settings, opts.SettingsSecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("settings store: %w", err)
+	}
+	installed, err := authStore.InstallationComplete(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("installation state: %w", err)
+	}
+	if !opts.SetupRequired {
+		installed = true
+	}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: authStore, playback: opts.Playback, library: opts.Library, sources: opts.Sources, enrichment: opts.Enrichment, imageCache: opts.ImageCache, settings: settingsStore, votes: newVoteManager(settingsStore), youtube: opts.YouTubeSearch}
+	a.installed.Store(installed)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
 	mux.HandleFunc("GET /api/v1/version", a.version)
+	mux.HandleFunc("GET /api/v1/setup/status", a.setupStatus)
+	mux.HandleFunc("POST /api/v1/setup/complete", a.completeSetup)
+	mux.HandleFunc("GET /api/v1/admin/settings", a.listAdminSettings)
+	mux.HandleFunc("PUT /api/v1/admin/settings/{key}", a.updateAdminSetting)
+	mux.HandleFunc("DELETE /api/v1/admin/settings/{key}", a.deleteAdminSetting)
+	mux.HandleFunc("POST /api/v1/admin/lastfm/test", a.testLastFM)
+	mux.HandleFunc("GET /api/v1/admin/users", a.listAdminUsers)
+	mux.HandleFunc("PUT /api/v1/admin/users/{id}/role", a.updateAdminRole)
 	mux.HandleFunc("GET /api/v1/queue", a.getQueue)
 	mux.HandleFunc("POST /api/v1/queue/items", a.addQueueItem)
 	mux.HandleFunc("DELETE /api/v1/queue/items/{id}", a.removeQueueItem)
 	mux.HandleFunc("PUT /api/v1/queue/order", a.reorderQueue)
 	mux.HandleFunc("DELETE /api/v1/queue", a.clearQueue)
 	mux.HandleFunc("POST /api/v1/queue/skip", a.skipQueueItem)
+	mux.HandleFunc("DELETE /api/v1/queue/skip", a.withdrawSkipVote)
 	mux.HandleFunc("GET /api/v1/auth/usernames/{username}", a.usernameAvailability)
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.HandleFunc("POST /api/v1/auth/signup", a.signup)
@@ -149,11 +186,13 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("DELETE /api/v1/playlists/{id}/items/{itemID}", a.removePlaylistItem)
 	mux.HandleFunc("GET /api/v1/history", a.listHistory)
 	mux.HandleFunc("GET /api/v1/library/search", a.searchLibrary)
+	mux.HandleFunc("GET /api/v1/account", a.accountDashboard)
+	mux.HandleFunc("GET /api/v1/youtube/search", a.searchYouTube)
 	mux.HandleFunc("GET /api/v1/enrichment", a.getEnrichment)
 	mux.HandleFunc("GET /api/v1/enrichment/images/{key}", a.getEnrichmentImage)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
-	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(captureRoute(mux))))), nil
+	return requestLogging(logger, a.authenticate(a.requireInstallation(a.protectMutations(a.enforceAccess(captureRoute(mux)))))), nil
 }
 
 func (a *application) live(w http.ResponseWriter, _ *http.Request) {

@@ -23,6 +23,7 @@ var (
 type User struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
+	IsAdmin   bool   `json:"is_admin"`
 	CreatedAt string `json:"created_at"`
 }
 type Session struct {
@@ -75,7 +76,7 @@ func (s *Store) FindUser(ctx context.Context, username string) (User, string, er
 	}
 	var user User
 	var hash string
-	err = s.db.QueryRowContext(ctx, `SELECT id, username, password_hash, created_at FROM users WHERE username_key = ?`, key).Scan(&user.ID, &user.Username, &hash, &user.CreatedAt)
+	err = s.db.QueryRowContext(ctx, `SELECT id, username, is_admin, password_hash, created_at FROM users WHERE username_key = ?`, key).Scan(&user.ID, &user.Username, &user.IsAdmin, &hash, &user.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, "", ErrUserNotFound
 	}
@@ -83,6 +84,105 @@ func (s *Store) FindUser(ctx context.Context, username string) (User, string, er
 		return User{}, "", err
 	}
 	return user, hash, nil
+}
+
+func (s *Store) InstallationComplete(ctx context.Context) (bool, error) {
+	var completed sql.NullString
+	if err := s.db.QueryRowContext(ctx, `SELECT completed_at FROM installation_state WHERE singleton = 1`).Scan(&completed); err != nil {
+		return false, err
+	}
+	return completed.Valid, nil
+}
+
+func (s *Store) CreateInitialAdminAndSession(ctx context.Context, username, password string) (IssuedSession, error) {
+	display, key, err := NormalizeUsername(username)
+	if err != nil {
+		return IssuedSession{}, err
+	}
+	if err := ValidatePassword(password); err != nil {
+		return IssuedSession{}, err
+	}
+	hash, err := HashPassword(password, s.passwordParams)
+	if err != nil {
+		return IssuedSession{}, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return IssuedSession{}, err
+	}
+	defer tx.Rollback()
+	var completed sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT completed_at FROM installation_state WHERE singleton = 1`).Scan(&completed); err != nil {
+		return IssuedSession{}, err
+	}
+	if completed.Valid {
+		return IssuedSession{}, errors.New("installation is already complete")
+	}
+	user := User{ID: randomToken(16), Username: display, IsAdmin: true, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO users (id, username, username_key, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, 1, ?)`, user.ID, user.Username, key, hash, user.CreatedAt); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return IssuedSession{}, ErrUsernameTaken
+		}
+		return IssuedSession{}, err
+	}
+	issued, err := createSession(ctx, tx, user, s.sessionLifetime)
+	if err != nil {
+		return IssuedSession{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE installation_state SET completed_at = CURRENT_TIMESTAMP WHERE singleton = 1 AND completed_at IS NULL`); err != nil {
+		return IssuedSession{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return IssuedSession{}, err
+	}
+	return issued, nil
+}
+
+func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, username, is_admin, created_at FROM users ORDER BY username_key`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	users := []User{}
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.ID, &user.Username, &user.IsAdmin, &user.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
+func (s *Store) SetAdmin(ctx context.Context, userID string, admin bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if !admin {
+		var targetAdmin, adminCount int
+		if err := tx.QueryRowContext(ctx, `SELECT is_admin FROM users WHERE id = ?`, userID).Scan(&targetAdmin); errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		} else if err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE is_admin = 1`).Scan(&adminCount); err != nil {
+			return err
+		}
+		if targetAdmin == 1 && adminCount <= 1 {
+			return errors.New("cannot remove the final administrator")
+		}
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE users SET is_admin = ? WHERE id = ?`, admin, userID)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return ErrUserNotFound
+	}
+	return tx.Commit()
 }
 
 func (s *Store) CreateUserAndSession(ctx context.Context, username, password string) (IssuedSession, error) {
@@ -152,7 +252,7 @@ func (s *Store) ResolveSession(ctx context.Context, token string) (Session, erro
 	}
 	var session Session
 	var revoked sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT s.id, u.id, u.username, u.created_at, s.created_at, s.expires_at, s.last_seen_at, s.revoked_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`, digest(token)).Scan(&session.ID, &session.User.ID, &session.User.Username, &session.User.CreatedAt, &session.CreatedAt, &session.ExpiresAt, &session.LastSeenAt, &revoked)
+	err := s.db.QueryRowContext(ctx, `SELECT s.id, u.id, u.username, u.is_admin, u.created_at, s.created_at, s.expires_at, s.last_seen_at, s.revoked_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`, digest(token)).Scan(&session.ID, &session.User.ID, &session.User.Username, &session.User.IsAdmin, &session.User.CreatedAt, &session.CreatedAt, &session.ExpiresAt, &session.LastSeenAt, &revoked)
 	if errors.Is(err, sql.ErrNoRows) || revoked.Valid {
 		return Session{}, ErrInvalidSession
 	}

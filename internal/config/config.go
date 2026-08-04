@@ -32,6 +32,8 @@ type Config struct {
 	MetadataUserAgent   string
 	MetadataImageDir    string
 	MetadataMaxInflight int
+	SetupRequired       bool
+	SettingsSecretKey   string
 }
 
 func Default() Config {
@@ -62,6 +64,8 @@ func Default() Config {
 		MetadataUserAgent:   env("RASPI_MEDIA_PLAYER_METADATA_USER_AGENT", "raspi-media-player/0.1 (https://github.com/dylanknuth/raspi-media-player)"),
 		MetadataImageDir:    env("RASPI_MEDIA_PLAYER_METADATA_IMAGE_DIR", "/var/lib/raspi-media-player/artist-images"),
 		MetadataMaxInflight: envInt("RASPI_MEDIA_PLAYER_METADATA_MAX_INFLIGHT", 2),
+		SetupRequired:       env("RASPI_MEDIA_PLAYER_SETUP_REQUIRED", "true") == "true",
+		SettingsSecretKey:   env("RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY", ""),
 	}
 }
 

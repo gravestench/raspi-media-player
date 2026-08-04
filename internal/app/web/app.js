@@ -1,4 +1,4 @@
-const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '' };
+const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '', setupStep: 0 };
 const $ = selector => document.querySelector(selector);
 
 function cookie(name) {
@@ -43,6 +43,11 @@ function render(snapshot) {
   $('#pause-button').disabled = !hasCurrent || playback.paused;
   $('#resume-button').disabled = !hasCurrent || (!playback.paused && playback.status !== 'stopped');
   $('#skip-button').disabled = !hasCurrent;
+  const vote = snapshot.skip_vote; const voteStatus = $('#vote-status');
+  if (vote?.enabled && hasCurrent) {
+    voteStatus.hidden = false; voteStatus.textContent = vote.voted ? `Your vote is in · ${vote.votes} of ${vote.required} needed` : `${vote.votes} of ${vote.required} skip votes · ${vote.active_listeners} active listener${vote.active_listeners === 1 ? '' : 's'}`;
+    $('#skip-button').textContent = vote.voted ? '✓' : '›|'; $('#skip-button').setAttribute('aria-label', vote.voted ? 'Withdraw skip vote' : 'Vote to skip current item');
+  } else { voteStatus.hidden = true; $('#skip-button').textContent = '›|'; $('#skip-button').setAttribute('aria-label', 'Skip current item'); }
   renderQueue(snapshot.items);
   if (playback.title && playback.title !== state.enrichmentTitle) { state.enrichmentTitle = playback.title; loadEnrichment(playback.title, renderNowEnrichment); }
   if (!playback.title) { state.enrichmentTitle = ''; $('#artist-panel').hidden = true; }
@@ -56,9 +61,9 @@ async function loadEnrichment(title, renderer, attempt = 0) {
 function renderNowEnrichment(value) {
   const panel = $('#artist-panel'); if (value.status !== 'ready') { panel.hidden = true; return; }
   panel.hidden = false; $('#artist-name').textContent = value.hint?.artist || '';
-  $('#artist-genres').textContent = (value.genres || []).join(' · '); $('#artist-bio').textContent = value.biography || '';
+  const genres = $('#artist-genres'); genres.replaceChildren(); (value.genres || []).slice(0, 8).forEach(name => { const tag = document.createElement('span'); tag.textContent = name; genres.append(tag); }); $('#artist-bio').textContent = value.biography || '';
   $('#related-artists').textContent = value.related_artists?.length ? `Related: ${value.related_artists.map(item => item.name).join(', ')}` : '';
-  const image = $('#artist-image'); image.hidden = !value.image?.url; if (value.image?.url) { image.src = value.image.url; image.alt = `${value.hint?.artist || 'Artist'} photo`; }
+  const image = $('#artist-image'); const hero = $('.artwork'); image.hidden = !value.image?.url; if (value.image?.url) { image.src = value.image.url; image.alt = `${value.hint?.artist || 'Artist'} photo`; hero.style.backgroundImage = `linear-gradient(180deg,transparent 55%,#10140dcc),url("${value.image.url.replaceAll('"','%22')}")`; hero.classList.add('has-image'); } else { hero.style.backgroundImage = ''; hero.classList.remove('has-image'); }
   const attribution = $('#artist-attribution'); attribution.textContent = value.image?.attribution || (value.provider ? `Metadata via ${value.provider}` : ''); attribution.href = value.image?.source_url || value.artist_url || '#';
 }
 
@@ -107,6 +112,8 @@ function renderIdentity() {
   const button = $('#account-button'); const footer = $('#footer-identity');
   if (state.session) { button.textContent = `${state.session.user.username} · Log out`; footer.textContent = `Signed in as ${state.session.user.username}`; }
   else { button.textContent = 'Log in'; footer.textContent = 'Browsing anonymously'; }
+  document.querySelectorAll('[data-auth-nav]').forEach(link => { link.hidden = !state.session; });
+  document.querySelectorAll('[data-admin-nav]').forEach(link => { link.hidden = !state.session?.user?.is_admin; });
 }
 
 function resetAuth() { $('#login-form').hidden = false; $('#signup-form').hidden = true; $('#login-error').textContent = ''; $('#signup-error').textContent = ''; state.pendingSignup = null; }
@@ -165,7 +172,7 @@ $('#add-form').addEventListener('submit', async event => {
 });
 $('#pause-button').addEventListener('click', () => control('/api/v1/playback/pause'));
 $('#resume-button').addEventListener('click', () => control('/api/v1/playback/resume'));
-$('#skip-button').addEventListener('click', () => control('/api/v1/queue/skip', { headers: revisionHeader() }));
+$('#skip-button').addEventListener('click', async () => { try { const voted = state.snapshot?.skip_vote?.voted; render(await api('/api/v1/queue/skip', { method: voted ? 'DELETE' : 'POST', headers: revisionHeader() })); } catch (error) { showToast(error.message); refresh(); } });
 $('#clear-button').addEventListener('click', async () => { try { render(await api('/api/v1/queue', { method: 'DELETE', headers: revisionHeader() })); } catch (error) { showToast(error.message); } });
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });
 $('#volume').addEventListener('change', async event => { try { render(await api('/api/v1/playback/volume', { method: 'PUT', body: JSON.stringify({ volume: Number(event.target.value) }) })); } catch (error) { showToast(error.message); } });
@@ -190,4 +197,60 @@ $('#station-form').addEventListener('submit', async event => { event.preventDefa
 $('#playlist-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await api('/api/v1/playlists', { method:'POST', body:JSON.stringify({ name:form.get('name') }) }); event.currentTarget.reset(); await loadLibrary(); showToast('Playlist created.'); } catch (error) { showToast(error.message); } });
 $('#library-search').addEventListener('input', () => { clearTimeout(loadLibrary.timer); loadLibrary.timer = setTimeout(loadLibrary, 250); });
 
-refresh(); loadSession(); connectEvents();
+function navigate() {
+  let page = location.hash.replace('#', '') || 'home';
+  if (page === 'account' && !state.session) page = 'home';
+  if (page === 'admin' && !state.session?.user?.is_admin) page = 'home';
+  document.querySelectorAll('.app-page').forEach(section => { section.hidden = section.dataset.page !== page; });
+  document.querySelectorAll('.primary-nav a,.mobile-nav a').forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${page}`));
+  if (page === 'account') loadAccount();
+  if (page === 'admin') loadAdmin();
+  document.querySelector('main')?.focus({ preventScroll: true });
+}
+
+async function loadAccount() {
+  const root = $('#account-dashboard'); root.innerHTML = '<p class="loading-card">Loading your listening dashboard…</p>';
+  try {
+    const value = await api('/api/v1/account'); root.replaceChildren();
+    const genres = dashboardCard('Your genres'); const genreCloud = document.createElement('div'); genreCloud.className = 'genre-cloud'; (value.genres || []).forEach(item => { const tag = document.createElement('span'); tag.textContent = `${item.name} · ${item.count}`; genreCloud.append(tag); }); if (!value.genres?.length) genreCloud.textContent = 'Play some enriched tracks to build your taste profile.'; genres.append(genreCloud);
+    const recent = dashboardCard('Recently played'); (value.recent || []).slice(0, 20).forEach(item => recent.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url)));
+    const favorites = dashboardCard('Favorite stations'); (value.favorites || []).forEach(item => favorites.append(queueableRow(item.name, item.stream_url)));
+    const playlists = dashboardCard('Playlists'); (value.playlists || []).forEach(item => { const row = document.createElement('div'); row.className = 'dashboard-row'; row.append(Object.assign(document.createElement('strong'), { textContent: item.name }), Object.assign(document.createElement('span'), { textContent: `${item.items.length} items` })); const button = actionButton('▶', `Queue ${item.name}`, () => queuePlaylist(item)); row.append(button); playlists.append(row); });
+    root.append(genres, recent, favorites, playlists);
+  } catch (error) { root.textContent = error.message; }
+}
+function dashboardCard(title) { const card = document.createElement('article'); card.className = 'dashboard-card'; const heading = document.createElement('h3'); heading.textContent = title; card.append(heading); return card; }
+function queueableRow(label, url) { const row = document.createElement('div'); row.className = 'dashboard-row'; const text = document.createElement('span'); text.textContent = label; row.append(text, actionButton('＋', `Queue ${label}`, () => queueURL(url, label))); return row; }
+async function queueURL(url, label = 'Item') { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url }) })); showToast(`${label} added to the queue.`); } catch (error) { showToast(error.message); } }
+
+async function loadAdmin() {
+  const root = $('#admin-settings'); root.innerHTML = '<p class="loading-card">Loading configuration…</p>';
+  try {
+    const [settingsBody, usersBody] = await Promise.all([api('/api/v1/admin/settings'), api('/api/v1/admin/users')]); root.replaceChildren();
+    const groups = new Map(); settingsBody.settings.forEach(setting => { if (!groups.has(setting.category)) groups.set(setting.category, []); groups.get(setting.category).push(setting); });
+    groups.forEach((items, category) => { const section = document.createElement('section'); section.className = 'settings-group'; const heading = document.createElement('h3'); heading.textContent = category; section.append(heading); items.forEach(setting => section.append(renderSetting(setting))); root.append(section); });
+    const link = document.createElement('a'); link.href = settingsBody.links.lastfm_create_key; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Create a Last.fm API key ↗'; root.querySelector('.settings-group:nth-child(3)')?.append(link);
+    renderAdminUsers(usersBody.users || []);
+  } catch (error) { root.textContent = error.message; }
+}
+function renderSetting(setting) {
+  const form = document.createElement('form'); form.className = 'setting-row'; const copy = document.createElement('div'); const label = document.createElement('strong'); label.textContent = setting.label; const description = document.createElement('small'); description.textContent = setting.description + (setting.restart_required ? ' Applies after service restart.' : ''); copy.append(label, description);
+  let input; if (setting.type === 'select') { input = document.createElement('select'); setting.options.forEach(value => { const option = document.createElement('option'); option.value = value; option.textContent = value.replaceAll('_', ' '); option.selected = value === setting.value; input.append(option); }); } else if (setting.type === 'boolean') { input = document.createElement('select'); [['true','On'],['false','Off']].forEach(([value,text]) => { const option = new Option(text,value,value === setting.value,value === setting.value); input.append(option); }); } else { input = document.createElement('input'); input.type = setting.secret ? 'password' : setting.type === 'number' ? 'number' : 'text'; input.value = setting.secret ? '' : setting.value || ''; input.placeholder = setting.secret && setting.configured ? 'Configured — enter to replace' : ''; }
+  if (setting.read_only) input.disabled = true;
+  input.setAttribute('aria-label', setting.label); const save = document.createElement('button'); save.className = 'button button-primary'; save.type = 'submit'; save.textContent = 'Save'; if (setting.read_only) save.hidden = true; form.append(copy, input, save); form.addEventListener('submit', async event => { event.preventDefault(); if (setting.read_only) return; if (setting.secret && !input.value) return showToast('Enter a new value, or use Remove.'); try { await api(`/api/v1/admin/settings/${setting.key}`, { method:'PUT', body:JSON.stringify({ value:input.value }) }); input.value = setting.secret ? '' : input.value; showToast(`${setting.label} saved.`); } catch (error) { showToast(error.message); } });
+  if (setting.secret && setting.configured) { const remove = document.createElement('button'); remove.className = 'button button-quiet dark-text'; remove.type = 'button'; remove.textContent = 'Remove'; remove.addEventListener('click', async () => { try { await api(`/api/v1/admin/settings/${setting.key}`, { method:'DELETE' }); showToast(`${setting.label} removed.`); loadAdmin(); } catch (error) { showToast(error.message); } }); form.append(remove); }
+  if (setting.key === 'lastfm_api_key') { const test = document.createElement('button'); test.className = 'button button-quiet dark-text'; test.type = 'button'; test.textContent = 'Test'; test.addEventListener('click', async () => { try { await api('/api/v1/admin/lastfm/test', { method:'POST', body:JSON.stringify({ api_key:input.value }) }); showToast('Last.fm connection succeeded.'); } catch (error) { showToast(error.message); } }); form.append(test); }
+  return form;
+}
+function renderAdminUsers(users) { const root = $('#admin-user-list'); root.replaceChildren(); users.forEach(user => { const row = document.createElement('div'); row.className = 'user-role-row'; const copy = document.createElement('span'); copy.textContent = user.username; const button = document.createElement('button'); button.className = 'button button-quiet dark-text'; button.textContent = user.is_admin ? 'Remove admin' : 'Make admin'; button.addEventListener('click', async () => { try { await api(`/api/v1/admin/users/${user.id}/role`, { method:'PUT', body:JSON.stringify({ admin:!user.is_admin }) }); loadAdmin(); } catch (error) { showToast(error.message); } }); row.append(copy, button); root.append(row); }); }
+
+$('#youtube-search-form').addEventListener('submit', async event => { event.preventDefault(); const query = $('#youtube-query').value.trim(); const results = $('#youtube-results'); $('#youtube-status').textContent = 'Searching…'; results.replaceChildren(); try { const body = await api(`/api/v1/youtube/search?q=${encodeURIComponent(query)}`); $('#youtube-status').textContent = body.results.length ? `${body.results.length} results` : 'No videos found.'; body.results.forEach(item => { const card = document.createElement('article'); card.className = 'youtube-card'; if (item.thumbnail) { const image = document.createElement('img'); image.src = item.thumbnail; image.alt = ''; card.append(image); } const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = item.title; const meta = document.createElement('small'); meta.textContent = [item.channel, item.duration_seconds ? formatTime(item.duration_seconds) : ''].filter(Boolean).join(' · '); copy.append(title, meta); const button = document.createElement('button'); button.className = 'button button-primary'; button.textContent = 'Queue'; button.addEventListener('click', () => queueURL(item.url, item.title)); card.append(copy, button); results.append(card); }); } catch (error) { $('#youtube-status').textContent = error.message; } });
+
+function renderSetupStep() { const steps = document.querySelectorAll('.setup-step'); steps.forEach((step, index) => { step.hidden = index !== state.setupStep; }); $('#setup-step-label').textContent = `Step ${state.setupStep + 1} of ${steps.length}`; $('#setup-back').hidden = state.setupStep === 0; $('#setup-next').hidden = state.setupStep === steps.length - 1; $('#setup-submit').hidden = state.setupStep !== steps.length - 1; $('#setup-next').textContent = state.setupStep === 0 ? 'Begin setup' : 'Continue'; if (state.setupStep === steps.length - 1) { const form = new FormData($('#setup-form')); $('#setup-review').textContent = `Administrator: ${form.get('username')} · Access: ${String(form.get('access_mode')).replaceAll('_',' ')} · Last.fm: ${form.get('lastfm_api_key') ? 'configured' : 'not configured'}`; } steps[state.setupStep].querySelector('input')?.focus(); }
+$('#setup-next').addEventListener('click', () => { if (state.setupStep === 2) { const inputs = document.querySelectorAll('[data-setup-step="2"] input'); if (![...inputs].every(input => input.reportValidity())) return; if (inputs[1].value !== inputs[2].value) return showToast('Passwords do not match.'); } state.setupStep++; renderSetupStep(); });
+$('#setup-back').addEventListener('click', () => { state.setupStep--; renderSetupStep(); });
+$('#setup-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); $('#setup-error').textContent = ''; try { const result = await api('/api/v1/setup/complete', { method:'POST', body:JSON.stringify(Object.fromEntries(form)) }); state.session = result.session; $('#setup-shell').hidden = true; $('#app-shell').hidden = false; renderIdentity(); await Promise.all([refresh(), loadLibrary()]); connectEvents(); location.hash = '#home'; navigate(); showToast('Your house jukebox is ready.'); } catch (error) { $('#setup-error').textContent = error.message; } });
+
+window.addEventListener('hashchange', navigate);
+async function boot() { try { const setup = await api('/api/v1/setup/status'); if (!setup.installed) { $('#app-shell').hidden = true; $('#setup-shell').hidden = false; renderSetupStep(); return; } } catch (error) { showToast(error.message); } await Promise.all([refresh(), loadSession()]); connectEvents(); navigate(); }
+boot();

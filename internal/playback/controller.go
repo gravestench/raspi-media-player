@@ -30,10 +30,12 @@ type Controller struct {
 	desiredVolume int
 	sources       source.Resolver
 	metadata      MetadataObserver
+	lastTitle     string
 }
 
 type HistoryRecorder interface {
 	RecordStarted(context.Context, string, string, string, string) (string, error)
+	RecordTitleChanged(context.Context, string, string) (bool, error)
 	RecordFinished(context.Context, string, string, string, error) error
 }
 type MetadataObserver interface{ ObserveTitle(context.Context, string) }
@@ -160,6 +162,7 @@ func (c *Controller) reconcile() {
 	}
 	c.mu.Lock()
 	c.loadedID = next.ID
+	c.lastTitle = ""
 	c.mu.Unlock()
 	if c.history != nil {
 		if _, err := c.history.RecordStarted(c.ctx, next.ID, next.Source.Kind, next.Source.URL, next.Submitter.UserID); err != nil {
@@ -209,6 +212,21 @@ func (c *Controller) handleEvent(event player.Event) {
 		if c.metadata != nil && state.Title != "" {
 			c.metadata.ObserveTitle(c.ctx, state.Title)
 		}
+		if c.history != nil && state.Title != "" {
+			c.mu.Lock()
+			changed := state.Title != c.lastTitle
+			if changed {
+				c.lastTitle = state.Title
+			}
+			c.mu.Unlock()
+			if changed {
+				if rotated, err := c.history.RecordTitleChanged(c.ctx, loadedID, state.Title); err != nil {
+					c.logger.Error("record stream metadata change failed", "error", err, "queue_item_id", loadedID)
+				} else if rotated {
+					c.logger.Info("stream metadata history segment created", "queue_item_id", loadedID, "title", state.Title)
+				}
+			}
+		}
 	case player.EventEnded:
 		if loadedID != "" {
 			c.mu.Lock()
@@ -224,6 +242,7 @@ func (c *Controller) handleEvent(event player.Event) {
 			}
 			c.mu.Lock()
 			c.loadedID = ""
+			c.lastTitle = ""
 			c.mu.Unlock()
 		}
 	case player.EventFailed:
@@ -258,6 +277,7 @@ func (c *Controller) handleEvent(event player.Event) {
 			c.logger.Warn("media item failed", "error", failure, "queue_item_id", loadedID)
 			c.mu.Lock()
 			c.loadedID = ""
+			c.lastTitle = ""
 			c.mu.Unlock()
 		}
 	}
