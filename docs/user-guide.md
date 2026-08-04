@@ -50,6 +50,8 @@ percentage. Votes expire and reset when the current track changes.
 ## Artist and genre discovery
 
 Genre chips in Now Playing, queue cards, and recent history are interactive.
+Long artist biographies in Now Playing can be expanded in place with **Read
+more** and collapsed again with **Show less**.
 Selecting a genre opens Last.fm-backed artist and track lists. Each result can
 launch a YouTube search inside the app. Artist and related-artist buttons open
 the same discovery workflow.

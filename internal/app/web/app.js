@@ -105,11 +105,23 @@ function loadNowArtwork(image, artist, generation, attempt = 0) {
 function renderNowEnrichment(value, generation = state.enrichmentGeneration) {
   const panel = $('#artist-panel'); if (value.status !== 'ready') { panel.hidden = true; return; }
   panel.hidden = false; const artist = value.hint?.artist || ''; const artistButton = $('#artist-name'); artistButton.textContent = artist; artistButton.onclick = () => discover(artist);
-  const genres = $('#artist-genres'); genres.replaceChildren(); (value.genres || []).slice(0, 8).forEach(name => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = name; tag.setAttribute('aria-label', `Discover ${name} music`); tag.addEventListener('click', () => discoverGenre(name)); genres.append(tag); }); $('#artist-bio').textContent = value.biography || '';
+  const genres = $('#artist-genres'); genres.replaceChildren(); (value.genres || []).slice(0, 8).forEach(name => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = name; tag.setAttribute('aria-label', `Discover ${name} music`); tag.addEventListener('click', () => discoverGenre(name)); genres.append(tag); });
+  const bio = $('#artist-bio'); const bioToggle = $('#artist-bio-toggle'); bio.textContent = value.biography || ''; bio.classList.remove('expanded'); bioToggle.hidden = true; bioToggle.textContent = 'Read more'; bioToggle.setAttribute('aria-expanded', 'false');
+  requestAnimationFrame(updateArtistBioToggle);
   const related = $('#related-artists'); related.replaceChildren(); if (value.related_artists?.length) { const label = document.createElement('span'); label.textContent = 'Related '; related.append(label); value.related_artists.slice(0, 6).forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.textContent = item.name; button.addEventListener('click', () => discover(item.name)); related.append(button); }); }
   loadNowArtwork(value.image, artist, generation);
   const attribution = $('#artist-attribution'); attribution.textContent = value.image?.attribution || (value.provider ? `Metadata via ${value.provider}` : ''); attribution.href = value.image?.source_url || value.artist_url || '#';
 }
+
+$('#artist-bio-toggle').addEventListener('click', event => {
+  const bio = $('#artist-bio'); const expanded = bio.classList.toggle('expanded');
+  event.currentTarget.setAttribute('aria-expanded', String(expanded)); event.currentTarget.textContent = expanded ? 'Show less' : 'Read more';
+});
+function updateArtistBioToggle() {
+  const bio = $('#artist-bio'); const toggle = $('#artist-bio-toggle');
+  toggle.hidden = !bio.textContent || (!bio.classList.contains('expanded') && bio.scrollHeight <= bio.clientHeight + 1);
+}
+window.addEventListener('resize', () => { clearTimeout(updateArtistBioToggle.timer); updateArtistBioToggle.timer = setTimeout(updateArtistBioToggle, 120); });
 
 function sourceLabel(url) {
   try { const parsed = new URL(url); return parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname; } catch { return url; }
