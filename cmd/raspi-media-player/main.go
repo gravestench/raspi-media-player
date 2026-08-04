@@ -86,7 +86,7 @@ func main() {
 			providers = append(providers, enrichment.NewLastFMProvider(cfg.LastFMAPIKey, nil))
 		}
 		providers = append(providers, enrichment.NewMusicBrainzProvider(cfg.MetadataUserAgent, nil), enrichment.NewWikimediaProvider(cfg.MetadataUserAgent, nil))
-		imageCache := enrichment.NewImageCache(cfg.MetadataImageDir, nil)
+		imageCache := enrichment.NewImageCache(cfg.MetadataImageDir, nil).WithUserAgent(cfg.MetadataUserAgent)
 		_ = imageCache.PruneOlderThan(time.Duration(cfg.MetadataCacheDays) * 24 * time.Hour)
 		metadataCoordinator = enrichment.NewCoordinator(enrichment.NewStore(db), time.Duration(cfg.MetadataCacheDays)*24*time.Hour, providers...).WithImageCache(imageCache).WithMaxInflight(cfg.MetadataMaxInflight)
 	}

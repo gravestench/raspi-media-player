@@ -17,8 +17,9 @@ import (
 )
 
 type ImageCache struct {
-	dir    string
-	client *http.Client
+	dir       string
+	client    *http.Client
+	userAgent string
 }
 
 func NewImageCache(dir string, client *http.Client) *ImageCache {
@@ -27,6 +28,12 @@ func NewImageCache(dir string, client *http.Client) *ImageCache {
 	}
 	return &ImageCache{dir: dir, client: client}
 }
+
+func (c *ImageCache) WithUserAgent(userAgent string) *ImageCache {
+	c.userAgent = strings.TrimSpace(userAgent)
+	return c
+}
+
 func (c *ImageCache) Cache(ctx context.Context, key string, imageValue Image) (Image, error) {
 	if c == nil || c.dir == "" || !validImage(imageValue) {
 		return imageValue, nil
@@ -37,6 +44,9 @@ func (c *ImageCache) Cache(ctx context.Context, key string, imageValue Image) (I
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageValue.URL, nil)
 	if err != nil {
 		return imageValue, err
+	}
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {

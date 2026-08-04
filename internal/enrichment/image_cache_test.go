@@ -23,10 +23,13 @@ func TestImageCacheStoresValidatedAttributedImage(t *testing.T) {
 	if err := png.Encode(&encoded, canvas); err != nil {
 		t.Fatal(err)
 	}
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if got := request.Header.Get("User-Agent"); got != "raspi-media-player/test" {
+			t.Errorf("User-Agent = %q", got)
+		}
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"image/png"}}, Body: io.NopCloser(bytes.NewReader(encoded.Bytes()))}, nil
 	})}
-	cache := NewImageCache(t.TempDir(), client)
+	cache := NewImageCache(t.TempDir(), client).WithUserAgent("raspi-media-player/test")
 	value, err := cache.Cache(context.Background(), "abc123", Image{URL: "https://upload.wikimedia.org/photo.png", SourceURL: "https://commons.wikimedia.org/wiki/File:Photo.png", Attribution: "Photographer · CC BY"})
 	if err != nil || value.URL != "/api/v1/enrichment/images/abc123" {
 		t.Fatalf("cache=%+v err=%v", value, err)
