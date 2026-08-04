@@ -1,15 +1,22 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
 )
 
 func (a *application) searchDiscovery(w http.ResponseWriter, r *http.Request) {
+	genre := strings.TrimSpace(r.URL.Query().Get("genre"))
+	if genre != "" {
+		a.searchGenreDiscovery(w, r, genre)
+		return
+	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" || len(query) > 120 {
 		writeError(w, http.StatusUnprocessableEntity, "invalid_discovery_query", "discovery query must be between 1 and 120 characters")
@@ -25,6 +32,27 @@ func (a *application) searchDiscovery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"query": query, "matches": matches})
+}
+
+func (a *application) searchGenreDiscovery(w http.ResponseWriter, r *http.Request, genre string) {
+	if len(genre) > 120 {
+		writeError(w, http.StatusUnprocessableEntity, "invalid_genre", "genre must be at most 120 characters")
+		return
+	}
+	key, err := a.settings.Value(r.Context(), "lastfm_api_key")
+	if err != nil || strings.TrimSpace(key) == "" {
+		writeError(w, http.StatusServiceUnavailable, "lastfm_not_configured", "Last.fm genre discovery is not configured")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	result, err := enrichment.NewLastFMProvider(key, nil).DiscoverTag(ctx, genre, 20)
+	if err != nil {
+		loggerFromContext(r.Context(), a.logger).Warn("Last.fm genre discovery failed", "genre", genre, "error", err)
+		writeError(w, http.StatusBadGateway, "genre_discovery_failed", "Last.fm genre discovery is temporarily unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *application) getEnrichment(w http.ResponseWriter, r *http.Request) {
