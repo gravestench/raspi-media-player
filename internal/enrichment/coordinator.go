@@ -72,19 +72,39 @@ func (c *Coordinator) fetch(key string, hint TrackHint) {
 	defer func() { c.mu.Lock(); delete(c.inflight, key); c.mu.Unlock() }()
 	c.slots <- struct{}{}
 	defer func() { <-c.slots }()
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	merged := Result{CacheKey: key, Hint: hint, Genres: []string{}, RelatedArtists: []ArtistSummary{}, Status: "ready"}
 	found := false
 	providerNames := []string{}
-	for _, provider := range c.providers {
-		result, err := provider.Lookup(ctx, hint)
-		if err != nil {
+	type providerResult struct {
+		index int
+		value Result
+		err   error
+	}
+	results := make(chan providerResult, len(c.providers))
+	var wait sync.WaitGroup
+	for index, provider := range c.providers {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			value, err := provider.Lookup(ctx, hint)
+			results <- providerResult{index: index, value: value, err: err}
+		}()
+	}
+	wait.Wait()
+	close(results)
+	ordered := make([]providerResult, len(c.providers))
+	for result := range results {
+		ordered[result.index] = result
+	}
+	for index, result := range ordered {
+		if result.err != nil {
 			continue
 		}
 		found = true
-		providerNames = append(providerNames, provider.Name())
-		mergeResult(&merged, result)
+		providerNames = append(providerNames, c.providers[index].Name())
+		mergeResult(&merged, result.value)
 	}
 	if found {
 		if merged.Image.URL != "" && c.images != nil && strings.Contains(merged.Provider, "wikimedia") {
