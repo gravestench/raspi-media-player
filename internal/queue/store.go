@@ -19,6 +19,7 @@ var (
 
 type Item struct {
 	ID        string    `json:"id"`
+	Title     string    `json:"title,omitempty"`
 	Source    Source    `json:"source"`
 	Submitter Submitter `json:"submitter"`
 	Position  int       `json:"position"`
@@ -81,7 +82,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err := s.db.QueryRowContext(ctx, `SELECT revision, playback_status, volume, COALESCE(current_item_id, ''), title, position_seconds, duration_seconds, paused, buffering, playback_error FROM queue_state WHERE singleton = 1`).Scan(&snapshot.Revision, &snapshot.Playback.Status, &snapshot.Playback.Volume, &snapshot.Playback.CurrentItemID, &snapshot.Playback.Title, &snapshot.Playback.PositionSeconds, &snapshot.Playback.DurationSeconds, &snapshot.Playback.Paused, &snapshot.Playback.Buffering, &snapshot.Playback.Error); err != nil {
 		return snapshot, fmt.Errorf("read queue state: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, ''), q.playback_status, q.playback_error FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.title, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, ''), q.playback_status, q.playback_error FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
 	if err != nil {
 		return snapshot, fmt.Errorf("list queue: %w", err)
 	}
@@ -89,7 +90,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	snapshot.Items = make([]Item, 0)
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.ID, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username, &item.Status, &item.Error); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username, &item.Status, &item.Error); err != nil {
 			return snapshot, fmt.Errorf("scan queue item: %w", err)
 		}
 		item.Submitter.Kind = "anonymous"
@@ -107,6 +108,10 @@ func (s *Store) Add(ctx context.Context, sourceURL, displayName string, user *Us
 }
 
 func (s *Store) AddSource(ctx context.Context, sourceKind, sourceURL, displayName string, user *UserSubmitter, limit int) (Snapshot, Item, error) {
+	return s.AddSourceTitled(ctx, sourceKind, sourceURL, "", displayName, user, limit)
+}
+
+func (s *Store) AddSourceTitled(ctx context.Context, sourceKind, sourceURL, title, displayName string, user *UserSubmitter, limit int) (Snapshot, Item, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Snapshot{}, Item{}, err
@@ -119,13 +124,13 @@ func (s *Store) AddSource(ctx context.Context, sourceKind, sourceURL, displayNam
 	if count >= limit {
 		return Snapshot{}, Item{}, ErrFull
 	}
-	item := Item{ID: newID(), Source: Source{Kind: sourceKind, URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	item := Item{ID: newID(), Title: title, Source: Source{Kind: sourceKind, URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	var userID any
 	if user != nil {
 		item.Submitter = Submitter{Kind: "user", UserID: user.ID, Username: user.Username}
 		userID = user.ID
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, source_kind, source_url, display_name, position, added_at, submitter_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, item.ID, item.Source.Kind, item.Source.URL, item.Submitter.DisplayName, item.Position, item.AddedAt, userID)
+	_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, title, source_kind, source_url, display_name, position, added_at, submitter_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, item.ID, item.Title, item.Source.Kind, item.Source.URL, item.Submitter.DisplayName, item.Position, item.AddedAt, userID)
 	if err != nil {
 		if isUniqueError(err) {
 			return Snapshot{}, Item{}, ErrDuplicate
@@ -225,8 +230,20 @@ func (s *Store) SetCurrent(ctx context.Context, id string) error {
 }
 
 func (s *Store) UpdatePlayback(ctx context.Context, state PlaybackState) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE queue_state SET playback_status = ?, title = ?, position_seconds = ?, duration_seconds = ?, paused = ?, buffering = ?, volume = ?, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, state.Status, state.Title, state.PositionSeconds, state.DurationSeconds, state.Paused, state.Buffering, state.Volume, state.Error)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `UPDATE queue_state SET playback_status = ?, title = ?, position_seconds = ?, duration_seconds = ?, paused = ?, buffering = ?, volume = ?, playback_error = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, state.Status, state.Title, state.PositionSeconds, state.DurationSeconds, state.Paused, state.Buffering, state.Volume, state.Error); err != nil {
+		return err
+	}
+	if state.Title != "" {
+		if _, err = tx.ExecContext(ctx, `UPDATE queue_items SET title = ? WHERE id = (SELECT current_item_id FROM queue_state WHERE singleton = 1) AND title <> ? AND (title = '' OR source_kind = 'direct')`, state.Title, state.Title); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) SetVolume(ctx context.Context, volume int) error {

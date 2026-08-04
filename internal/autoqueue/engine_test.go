@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dylanknuth/raspi-media-player/internal/database"
@@ -63,7 +64,7 @@ func TestRefillUsesOnlyActiveUsersAndMaintainsConfiguredDepth(t *testing.T) {
 		t.Fatalf("snapshot=%+v err=%v", snapshot, err)
 	}
 	for _, item := range snapshot.Items {
-		if item.Submitter.DisplayName != "Auto-queue" || item.Source.Kind != "youtube" {
+		if !strings.Contains(item.Title, " - ") || item.Submitter.DisplayName != "Auto-queue" || item.Source.Kind != "youtube" {
 			t.Fatalf("unexpected auto-queue item: %+v", item)
 		}
 	}

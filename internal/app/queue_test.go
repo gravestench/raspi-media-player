@@ -35,12 +35,12 @@ func TestAnonymousQueueLifecycle(t *testing.T) {
 	var logs bytes.Buffer
 	handler := testHandler(t, &logs)
 
-	first := queueRequest(t, handler, http.MethodPost, "/api/v1/queue/items", "", `{"url":"https://netcast.kfjc.org/kfjc-128k-mp3","display_name":"Living room"}`)
+	first := queueRequest(t, handler, http.MethodPost, "/api/v1/queue/items", "", `{"url":"https://netcast.kfjc.org/kfjc-128k-mp3","title":"Artist - Track","display_name":"Living room"}`)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("add first: %d %s", first.Code, first.Body.String())
 	}
 	snapshot := snapshotFrom(t, first)
-	if snapshot.Revision != 1 || len(snapshot.Items) != 1 || snapshot.Items[0].Status != "queued" || snapshot.Items[0].Submitter.Kind != "anonymous" {
+	if snapshot.Revision != 1 || len(snapshot.Items) != 1 || snapshot.Items[0].Title != "Artist - Track" || snapshot.Items[0].Status != "queued" || snapshot.Items[0].Submitter.Kind != "anonymous" {
 		t.Fatalf("unexpected first snapshot: %+v", snapshot)
 	}
 	firstID := snapshot.Items[0].ID

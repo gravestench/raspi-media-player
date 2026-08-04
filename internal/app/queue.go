@@ -21,6 +21,7 @@ const maxQueueRequestBytes = 16 * 1024
 
 type addQueueRequest struct {
 	URL         string `json:"url"`
+	Title       string `json:"title"`
 	DisplayName string `json:"display_name"`
 }
 
@@ -49,6 +50,7 @@ func (a *application) addQueueItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.URL = strings.TrimSpace(request.URL)
+	request.Title = strings.TrimSpace(request.Title)
 	request.DisplayName = strings.TrimSpace(request.DisplayName)
 	sourceKind, err := a.sources.Classify(request.URL)
 	if err != nil {
@@ -63,11 +65,15 @@ func (a *application) addQueueItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "display_name_too_long", "display_name must be at most 64 characters")
 		return
 	}
+	if len(request.Title) > 240 {
+		writeError(w, http.StatusUnprocessableEntity, "title_too_long", "title must be at most 240 characters")
+		return
+	}
 	var submitter *queuepkg.UserSubmitter
 	if identity := identityFromContext(r.Context()); identity != nil {
 		submitter = &queuepkg.UserSubmitter{ID: identity.Session.User.ID, Username: identity.Session.User.Username}
 	}
-	snapshot, item, err := a.queue.AddSource(r.Context(), sourceKind, request.URL, request.DisplayName, submitter, a.options.QueueLimit)
+	snapshot, item, err := a.queue.AddSourceTitled(r.Context(), sourceKind, request.URL, request.Title, request.DisplayName, submitter, a.options.QueueLimit)
 	if err != nil {
 		a.queueError(w, r, err)
 		return

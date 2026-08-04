@@ -58,10 +58,10 @@ function render(snapshot) {
   if (!playback.title) { state.enrichmentTitle = ''; state.enrichmentGeneration += 1; $('#artist-panel').hidden = true; resetNowArtwork(false); }
 }
 
-async function loadEnrichment(title, renderer, attempt = 0, generation = state.enrichmentGeneration) {
+async function loadEnrichment(title, renderer, attempt = 0, generation = null) {
   try {
     const body = await api(`/api/v1/enrichment?title=${encodeURIComponent(title)}`);
-    if (generation !== state.enrichmentGeneration || title !== state.enrichmentTitle) return;
+    if (generation !== null && (generation !== state.enrichmentGeneration || title !== state.enrichmentTitle)) return;
     renderer(body.enrichment || {}, generation);
     if (body.enrichment?.status === 'pending' && attempt < 24) {
       const delay = Math.min(750 + (attempt * 150), 2000);
@@ -118,10 +118,10 @@ function renderQueue(items) {
     const row = document.createElement('li'); row.className = `queue-item ${item.status}`;
     const number = document.createElement('span'); number.className = 'queue-number'; number.textContent = item.status === 'current' ? '▶' : String(index + 1).padStart(2, '0');
     const copy = document.createElement('div'); copy.className = 'queue-copy';
-    const title = document.createElement('span'); title.className = 'queue-title'; title.textContent = sourceLabel(item.source.url); title.title = item.source.url;
+    const title = document.createElement('span'); title.className = 'queue-title'; title.textContent = item.title || sourceLabel(item.source.url); title.title = item.source.url;
     const meta = document.createElement('div'); meta.className = 'queue-meta';
     const submitter = item.submitter.kind === 'user' ? item.submitter.username : item.submitter.display_name || 'Anonymous';
-    meta.textContent = item.error ? `${submitter} · ${item.error}` : `Added by ${submitter}`; copy.append(title, meta);
+    meta.textContent = item.error ? `${submitter} · ${item.error}` : `Added by ${submitter}`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
     const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.status;
     const actions = document.createElement('div'); actions.className = 'item-actions';
     if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
@@ -129,6 +129,16 @@ function renderQueue(items) {
     actions.append(actionButton('×', `Remove ${title.textContent}`, () => removeItem(item.id)));
     row.append(number, copy, badge, actions); list.append(row);
   });
+}
+
+function renderQueueEnrichment(copy, details, value) {
+  if (!copy.isConnected || value.status === 'pending') return;
+  if (value.status !== 'ready') { copy.querySelector('.queue-artwork-loading')?.remove(); return; }
+  copy.querySelector('.queue-artwork-loading')?.remove(); copy.querySelector('.queue-artwork')?.remove(); details.querySelector('.queue-enrichment')?.remove();
+  if (value.image?.url) { const image = document.createElement('img'); image.className = 'queue-artwork'; image.src = value.image.url; image.alt = `${value.hint?.artist || 'Artist'} photo`; copy.prepend(image); }
+  const context = document.createElement('div'); context.className = 'queue-enrichment';
+  if (value.hint?.artist) { const artist = document.createElement('button'); artist.type = 'button'; artist.textContent = value.hint.artist; artist.addEventListener('click', () => discover(value.hint.artist)); context.append(artist); }
+  const genres = document.createElement('span'); genres.className = 'queue-genres'; (value.genres || []).slice(0, 4).forEach(name => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = name; tag.addEventListener('click', () => discoverGenre(name)); genres.append(tag); }); context.append(genres); details.append(context);
 }
 
 function actionButton(text, label, handler) { const button = document.createElement('button'); button.type = 'button'; button.className = 'icon-button'; button.textContent = text; button.setAttribute('aria-label', label); button.addEventListener('click', handler); return button; }
@@ -263,7 +273,7 @@ async function loadAccount() {
 }
 function dashboardCard(title) { const card = document.createElement('article'); card.className = 'dashboard-card'; const heading = document.createElement('h3'); heading.textContent = title; card.append(heading); return card; }
 function queueableRow(label, url) { const row = document.createElement('div'); row.className = 'dashboard-row'; const text = document.createElement('span'); text.textContent = label; row.append(text, actionButton('＋', `Queue ${label}`, () => queueURL(url, label))); return row; }
-async function queueURL(url, label = 'Item') { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url }) })); showToast(`${label} added to the queue.`); } catch (error) { showToast(error.message); } }
+async function queueURL(url, label = 'Item', storedTitle = label) { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url, title:storedTitle === 'Item' || storedTitle === 'Stream' ? '' : storedTitle }) })); showToast(`${label} added to the queue.`); } catch (error) { showToast(error.message); } }
 
 async function loadAdmin() {
   const root = $('#admin-settings'); root.innerHTML = '<p class="loading-card">Loading configuration…</p>';
@@ -293,7 +303,7 @@ async function runDiscovery(query) {
   const results = $('#youtube-results'); const local = $('#local-discovery'); $('#youtube-status').textContent = `Discovering ${query}…`; results.replaceChildren(); local.replaceChildren();
   const [known, youtube] = await Promise.allSettled([api(`/api/v1/discovery?q=${encodeURIComponent(query)}`), api(`/api/v1/youtube/search?q=${encodeURIComponent(query)}`)]);
   if (known.status === 'fulfilled' && known.value.matches?.length) { const heading = document.createElement('h3'); heading.textContent = 'Known around the house'; local.append(heading); const grid = document.createElement('div'); grid.className = 'discovery-chips'; known.value.matches.forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'discovery-chip'; button.textContent = [item.hint?.artist,item.hint?.title].filter(Boolean).join(' — '); button.addEventListener('click', () => discover(button.textContent)); grid.append(button); }); local.append(grid); }
-  if (youtube.status === 'fulfilled') { const body = youtube.value; $('#youtube-status').textContent = `${body.results.length} playable result${body.results.length === 1 ? '' : 's'} for ${query}`; body.results.forEach(item => { const card = document.createElement('article'); card.className = 'youtube-card'; if (item.thumbnail) { const image = document.createElement('img'); image.src = item.thumbnail; image.alt = ''; card.append(image); } const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = item.title; const meta = document.createElement('small'); meta.textContent = [item.channel, item.duration_seconds ? formatTime(item.duration_seconds) : ''].filter(Boolean).join(' · '); copy.append(title, meta); const button = document.createElement('button'); button.className = 'button button-primary'; button.textContent = 'Queue'; button.addEventListener('click', () => queueURL(item.url, item.title)); card.append(copy, button); results.append(card); }); } else { $('#youtube-status').textContent = youtube.reason.message; }
+  if (youtube.status === 'fulfilled') { const body = youtube.value; $('#youtube-status').textContent = `${body.results.length} playable result${body.results.length === 1 ? '' : 's'} for ${query}`; body.results.forEach(item => { const card = document.createElement('article'); card.className = 'youtube-card'; if (item.thumbnail) { const image = document.createElement('img'); image.src = item.thumbnail; image.alt = ''; card.append(image); } const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = item.title; const meta = document.createElement('small'); meta.textContent = [item.channel, item.duration_seconds ? formatTime(item.duration_seconds) : ''].filter(Boolean).join(' · '); copy.append(title, meta); const button = document.createElement('button'); button.className = 'button button-primary'; button.textContent = 'Queue'; button.addEventListener('click', () => queueURL(item.url, item.title, item.title.includes(' - ') || !item.channel ? item.title : `${item.channel} - ${item.title}`)); card.append(copy, button); results.append(card); }); } else { $('#youtube-status').textContent = youtube.reason.message; }
 }
 $('#youtube-search-form').addEventListener('submit', async event => {
   event.preventDefault(); const query = $('#youtube-query').value.trim();

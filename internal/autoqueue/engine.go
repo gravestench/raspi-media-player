@@ -97,6 +97,7 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 	for attempts := 0; added < needed && attempts < needed*6; attempts++ {
 		preference := e.pick(preferences)
 		query := preference.Name
+		canonicalTitle := ""
 		if preference.Kind == "genre" {
 			query += " music"
 			if key, keyErr := e.settings.Value(ctx, "lastfm_api_key"); keyErr == nil && key != "" {
@@ -106,6 +107,7 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 				if discoverErr == nil && len(discovery.Tracks) > 0 {
 					track := discovery.Tracks[e.randomIndex(len(discovery.Tracks))]
 					query = track.Artist + " " + track.Name
+					canonicalTitle = track.Artist + " - " + track.Name
 				}
 			}
 		} else {
@@ -118,7 +120,17 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 			continue
 		}
 		result := results[e.randomIndex(len(results))]
-		_, _, addErr := e.queue.AddSource(ctx, "youtube", result.URL, "Auto-queue", nil, limit)
+		if canonicalTitle == "" {
+			canonicalTitle = result.Title
+			if enrichment.ParseTitle(result.Title).Artist == "" {
+				artist := preference.Name
+				if preference.Kind == "genre" && result.Channel != "" {
+					artist = result.Channel
+				}
+				canonicalTitle = artist + " - " + result.Title
+			}
+		}
+		_, _, addErr := e.queue.AddSourceTitled(ctx, "youtube", result.URL, canonicalTitle, "Auto-queue", nil, limit)
 		if addErr == nil {
 			added++
 			continue
