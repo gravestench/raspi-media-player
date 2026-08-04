@@ -336,6 +336,53 @@ Acceptance criteria:
 
 ---
 
+## Milestone 11 — Artist imagery and music discovery
+
+Goal: turn stream and YouTube titles into useful, browsable artist context
+without delaying or destabilizing playback.
+
+- [x] Define normalized track hints and parse common `Artist - Title` radio and
+      YouTube metadata, including removable official-video/audio suffixes.
+- [x] Add a provider-neutral enrichment model and persistent cache schema for
+      artist images, biographies, genres/tags, related artists, attribution,
+      lookup status, and expiry.
+- [ ] Add a background enrichment coordinator with cancellation, bounded
+      timeouts, retry/backoff, negative caching, and no impact on playback.
+- [ ] Add optional Last.fm configuration and provider support for artist info,
+      top tags, and similar artists without storing or logging the API key.
+- [ ] Add keyless MusicBrainz identity/relationship fallback with the required
+      descriptive User-Agent and an average maximum of one request per second.
+- [ ] Add Wikimedia Commons/Wikidata artist-image fallback with license and
+      attribution fields; never hotlink an image without retaining its source.
+- [ ] Reject placeholder, tiny, unrelated, unsafe-scheme, or uncredited images
+      and prefer cached local thumbnails where licensing permits.
+- [ ] Associate enrichment records with current playback and immutable history
+      entries without changing queue ownership or deletion semantics.
+- [ ] Extend now-playing and history APIs with enrichment state, artist details,
+      genres, related artists, image attribution, and graceful unavailable states.
+- [ ] Display artist imagery and expandable discovery details prominently in
+      now-playing and accessibly from each recently played row on desktop and
+      phone layouts.
+- [ ] Allow an operator to disable external metadata entirely and configure
+      providers, cache lifetime, request budget, and contact/User-Agent details.
+- [ ] Add parser, provider-contract, cache, rate-limit, API, regression, and
+      browser tests, including ambiguous titles and provider outages.
+- [ ] Document API-key setup, provider terms/attribution, privacy, cache cleanup,
+      troubleshooting, and the limitations of title-derived identification.
+
+Acceptance criteria:
+
+- A recognizable radio or YouTube title gains artist context asynchronously
+  while audio continues uninterrupted.
+- Now-playing and recent-history views expose the same cached enrichment and
+  make image/provider attribution easy to reach.
+- Missing keys, ambiguous titles, rate limits, provider downtime, or bad images
+  degrade to the original title rather than blocking playback or queue progress.
+- Repeated plays use the persistent cache and remain inside provider request
+  limits.
+
+---
+
 ## Deferred ideas
 
 These are intentionally outside the first household-ready release unless a
@@ -372,6 +419,7 @@ milestone is revised:
   2026-08-04, including diagnostics, live browser smoke testing, and playback
   resource observation.
 - **Current milestone:** v0.1.0 household release complete
+- **Current milestone:** Milestone 11 — Artist imagery and music discovery
 - **Next feature milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
