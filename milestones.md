@@ -388,25 +388,25 @@ Acceptance criteria:
 Goal: make a fresh appliance safe and understandable to configure entirely from
 a phone or desktop browser.
 
-- [ ] Detect an uninstalled database and route browsers to a full-screen,
+- [x] Detect an uninstalled database and route browsers to a full-screen,
       one-question-at-a-time installation wizard.
-- [ ] Explain privacy, network exposure, playback, access modes, and optional
+- [x] Explain privacy, network exposure, playback, access modes, and optional
       external metadata before asking for configuration.
-- [ ] Create the first local account as an administrator and sign it in when
+- [x] Create the first local account as an administrator and sign it in when
       installation completes.
-- [ ] Store runtime settings and encrypted/redacted secrets separately from
+- [x] Store runtime settings and encrypted/redacted secrets separately from
       deployment-only bootstrap settings.
-- [ ] Add administrator-only APIs and SPA routes for general, access, playback,
+- [x] Add administrator-only APIs and SPA routes for general, access, playback,
       metadata, retention, queue, and voting configuration.
-- [ ] Manage the Last.fm API key with masked reads, explicit replacement/removal,
+- [x] Manage the Last.fm API key with masked reads, explicit replacement/removal,
       connection testing, and links to official setup documentation.
-- [ ] Add an administrator user list and allow admins to grant or revoke the
+- [x] Add an administrator user list and allow admins to grant or revoke the
       admin role, while preventing removal of the final administrator.
-- [ ] Require a current admin session and CSRF protection for every admin route;
+- [x] Require a current admin session and CSRF protection for every admin route;
       never return or log stored secrets.
-- [ ] Make setup and administration keyboard-, screen-reader-, phone-, and
+- [x] Make setup and administration keyboard-, screen-reader-, phone-, and
       desktop-accessible.
-- [ ] Document first boot, recovery, configuration precedence, secret storage,
+- [x] Document first boot, recovery, configuration precedence, secret storage,
       and administrator operations.
 
 Acceptance criteria:
@@ -422,21 +422,21 @@ Acceptance criteria:
 Goal: let active listeners democratically skip an unwanted item without making
 single-listener households cumbersome.
 
-- [ ] Track recently active anonymous browser identities and signed-in users
+- [x] Track recently active anonymous browser identities and signed-in users
       without creating permanent surveillance identifiers.
-- [ ] Add one skip vote per active identity per playback item and expose the
+- [x] Add one skip vote per active identity per playback item and expose the
       current count, threshold, voters' own state, and expiry.
-- [ ] Skip immediately when only one listener is active; otherwise calculate a
+- [x] Skip immediately when only one listener is active; otherwise calculate a
       configurable quorum/percentage threshold.
-- [ ] Broadcast votes and threshold changes immediately over the existing event
+- [x] Broadcast votes and threshold changes immediately over the existing event
       stream.
-- [ ] Expire votes after a configurable timeout and clear them on item change,
+- [x] Expire votes after a configurable timeout and clear them on item change,
       stop, or successful skip.
-- [ ] Add admin settings for enabling voting, active-window length, vote timeout,
+- [x] Add admin settings for enabling voting, active-window length, vote timeout,
       quorum percentage, and optional administrator override.
-- [ ] Replace direct skip controls with clear vote/unvote affordances where the
+- [x] Replace direct skip controls with clear vote/unvote affordances where the
       configured policy requires it.
-- [ ] Add concurrency, reconnect, expiry, identity, and threshold tests.
+- [x] Add concurrency, reconnect, expiry, identity, and threshold tests.
 
 Acceptance criteria:
 
@@ -449,17 +449,17 @@ Acceptance criteria:
 
 Goal: give each account a useful view of its listening and saved music.
 
-- [ ] Add an authenticated account route with profile and session-management
+- [x] Add an authenticated account route with profile and session-management
       basics.
-- [ ] Show recent submissions/listens, favorites, stations, and playlists in one
+- [x] Show recent submissions/listens, favorites, stations, and playlists in one
       responsive dashboard.
-- [ ] Derive a genre/tag breakdown from enriched listening history with clear
+- [x] Derive a genre/tag breakdown from enriched listening history with clear
       empty and partial-data states.
-- [ ] Allow supported recent items, favorites, stations, and playlist entries to
+- [x] Allow supported recent items, favorites, stations, and playlist entries to
       be queued directly from the account page.
-- [ ] Keep personal statistics private to the account except for existing shared
+- [x] Keep personal statistics private to the account except for existing shared
       queue attribution.
-- [ ] Add pagination/bounds so history aggregation remains inexpensive.
+- [x] Add pagination/bounds so history aggregation remains inexpensive.
 
 Acceptance criteria:
 
@@ -471,16 +471,16 @@ Acceptance criteria:
 
 Goal: search and queue YouTube audio without leaving the jukebox.
 
-- [ ] Add a YouTube search adapter with bounded queries, safe-process execution,
+- [x] Add a YouTube search adapter with bounded queries, safe-process execution,
       timeouts, and stable result models.
-- [ ] Add a debounced search UI with thumbnails, title/channel/duration, loading,
+- [x] Add a debounced search UI with thumbnails, title/channel/duration, loading,
       empty, and failure states.
-- [ ] Queue a selected result through the existing validated YouTube source
+- [x] Queue a selected result through the existing validated YouTube source
       adapter and preserve submitter attribution.
-- [ ] Keep direct YouTube URL input available alongside search.
-- [ ] Add admin controls to enable search, cap results, and configure the search
+- [x] Keep direct YouTube URL input available alongside search.
+- [x] Add admin controls to enable search, cap results, and configure the search
       backend without exposing secrets.
-- [ ] Add adapter contract, injection, timeout, queueing, and browser tests.
+- [x] Add adapter contract, injection, timeout, queueing, and browser tests.
 
 Acceptance criteria:
 
@@ -493,14 +493,14 @@ Acceptance criteria:
 Goal: treat changing radio metadata as real listening events and make enrichment
 useful at a glance.
 
-- [ ] Detect meaningful stream-title changes while one radio queue item remains
+- [x] Detect meaningful stream-title changes while one radio queue item remains
       active and debounce duplicate/noisy metadata.
-- [ ] Close the previous track-history segment and create a new immutable segment
+- [x] Close the previous track-history segment and create a new immutable segment
       without advancing or rewriting the shared queue item.
-- [ ] Enrich each detected track asynchronously and retain its normalized raw
+- [x] Enrich each detected track asynchronously and retain its normalized raw
       title, timestamps, station/source, and attribution.
-- [ ] Display genre tags compactly in now-playing and history views.
-- [ ] Add tests for repeated metadata, rapid changes, missing metadata, restarts,
+- [x] Display genre tags compactly in now-playing and history views.
+- [x] Add tests for repeated metadata, rapid changes, missing metadata, restarts,
       and stream-to-finite-item transitions.
 
 Acceptance criteria:
@@ -515,19 +515,19 @@ Acceptance criteria:
 Goal: make the player, setup, admin, discovery, and account experiences feel
 like one fast, expressive household appliance.
 
-- [ ] Establish client-side routes and shared application state without breaking
+- [x] Establish client-side routes and shared application state without breaking
       deep links, refreshes, anonymous use, or progressive loading.
-- [ ] Redesign now-playing information into a compact hierarchy with artwork,
+- [x] Redesign now-playing information into a compact hierarchy with artwork,
       title, artist, genres, attribution, progress, and primary controls.
-- [ ] Make queue, search, library, account, and admin destinations easy to reach
+- [x] Make queue, search, library, account, and admin destinations easy to reach
       with phone bottom navigation and space-efficient desktop navigation.
-- [ ] Add purposeful CSS3 transitions, artwork treatments, live vote feedback,
+- [x] Add purposeful CSS3 transitions, artwork treatments, live vote feedback,
       loading skeletons, and reduced-motion equivalents.
-- [ ] Remove duplicated labels, oversized empty regions, and visually noisy
+- [x] Remove duplicated labels, oversized empty regions, and visually noisy
       metadata while retaining details behind accessible disclosure controls.
-- [ ] Verify keyboard navigation, focus management, contrast, landmarks, touch
+- [x] Verify keyboard navigation, focus management, contrast, landmarks, touch
       targets, screen-reader names, and 320px through wide-desktop layouts.
-- [ ] Add browser smoke tests for anonymous, account, admin, setup, search,
+- [x] Add browser smoke tests for anonymous, account, admin, setup, search,
       voting, offline/reconnect, and reduced-motion flows.
 
 Acceptance criteria:
@@ -578,10 +578,11 @@ milestone is revised:
 - **Milestone 11:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04, including live multi-provider enrichment, attributed local image
   caching, API/browser validation, and uninterrupted playback.
-- **Current milestone:** Milestone 12 — Guided installation and administration
-- **Planned milestones:** 13 skip voting; 14 personal dashboard; 15 integrated
-  YouTube discovery; 16 stream-history fixes; 17 responsive SPA redesign.
-- **Next feature milestone:** Household feedback and ongoing maintenance
+- **Milestones 12–17:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04: guided installation/admin, encrypted configuration, role
+  management, live skip voting, personal dashboards, integrated YouTube search,
+  track-level stream history, and the responsive SPA redesign.
+- **Current milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
