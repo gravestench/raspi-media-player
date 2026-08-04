@@ -2,7 +2,7 @@
 set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-TARGET=${TARGET:-dknuth@192.168.1.25}
+: "${TARGET:?Set TARGET to the Raspberry Pi SSH destination, for example user@jukebox.local}"
 REMOTE_STAGE=/tmp/raspi-media-player-deploy
 BINARY=$PROJECT_ROOT/dist/raspi-media-player-linux-arm64
 

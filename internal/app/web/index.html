@@ -58,7 +58,10 @@
     <section class="now-playing app-page" data-page="home" aria-labelledby="now-playing-heading">
       <div class="section-label"><span></span> NOW PLAYING</div>
       <div class="now-grid">
-        <div class="artwork" aria-hidden="true"><span>♫</span></div>
+        <div class="artwork" aria-hidden="true">
+          <span class="artwork-placeholder">♫</span>
+          <span class="artwork-loader" role="status" aria-label="Loading artist photo"></span>
+        </div>
         <div class="track-details">
           <h1 id="now-playing-heading">Nothing playing</h1>
           <p id="now-source">Add a radio stream or audio URL to get started.</p>

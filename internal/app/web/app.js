@@ -1,4 +1,4 @@
-const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '', setupStep: 0 };
+const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '', enrichmentGeneration: 0, artworkURL: '', setupStep: 0 };
 const $ = selector => document.querySelector(selector);
 
 function cookie(name) {
@@ -49,21 +49,62 @@ function render(snapshot) {
     $('#skip-button').textContent = vote.voted ? '✓' : '›|'; $('#skip-button').setAttribute('aria-label', vote.voted ? 'Withdraw skip vote' : 'Vote to skip current item');
   } else { voteStatus.hidden = true; $('#skip-button').textContent = '›|'; $('#skip-button').setAttribute('aria-label', 'Skip current item'); }
   renderQueue(snapshot.items);
-  if (playback.title && playback.title !== state.enrichmentTitle) { state.enrichmentTitle = playback.title; loadEnrichment(playback.title, renderNowEnrichment); }
-  if (!playback.title) { state.enrichmentTitle = ''; $('#artist-panel').hidden = true; }
+  if (playback.title && playback.title !== state.enrichmentTitle) {
+    state.enrichmentTitle = playback.title;
+    state.enrichmentGeneration += 1;
+    resetNowArtwork(true);
+    loadEnrichment(playback.title, renderNowEnrichment, 0, state.enrichmentGeneration);
+  }
+  if (!playback.title) { state.enrichmentTitle = ''; state.enrichmentGeneration += 1; $('#artist-panel').hidden = true; resetNowArtwork(false); }
 }
 
-async function loadEnrichment(title, renderer, attempt = 0) {
-  try { const body = await api(`/api/v1/enrichment?title=${encodeURIComponent(title)}`); renderer(body.enrichment || {}); if (body.enrichment?.status === 'pending' && attempt < 4) setTimeout(() => loadEnrichment(title, renderer, attempt + 1), 750); }
+async function loadEnrichment(title, renderer, attempt = 0, generation = state.enrichmentGeneration) {
+  try {
+    const body = await api(`/api/v1/enrichment?title=${encodeURIComponent(title)}`);
+    if (generation !== state.enrichmentGeneration || title !== state.enrichmentTitle) return;
+    renderer(body.enrichment || {}, generation);
+    if (body.enrichment?.status === 'pending' && attempt < 24) {
+      const delay = Math.min(750 + (attempt * 150), 2000);
+      setTimeout(() => loadEnrichment(title, renderer, attempt + 1, generation), delay);
+    }
+  }
   catch (error) { if (attempt === 0) console.debug('Artist metadata unavailable', error.message); }
 }
 
-function renderNowEnrichment(value) {
+function resetNowArtwork(loading) {
+  const hero = $('.artwork'); const section = $('.now-playing');
+  state.artworkURL = '';
+  hero.style.removeProperty('--artwork-image'); section.style.removeProperty('--now-artwork');
+  hero.classList.remove('has-image'); section.classList.remove('has-artwork');
+  hero.classList.toggle('is-loading', loading);
+  hero.setAttribute('aria-hidden', 'true'); hero.removeAttribute('role'); hero.removeAttribute('aria-label');
+}
+
+function loadNowArtwork(image, artist, generation, attempt = 0) {
+  if (!image?.url) { $('.artwork').classList.remove('is-loading'); return; }
+  const preload = new Image();
+  preload.onload = () => {
+    if (generation !== state.enrichmentGeneration) return;
+    const escaped = image.url.replaceAll('"', '%22'); const cssImage = `url("${escaped}")`;
+    const hero = $('.artwork'); const section = $('.now-playing');
+    state.artworkURL = image.url; hero.style.setProperty('--artwork-image', cssImage); section.style.setProperty('--now-artwork', cssImage);
+    hero.classList.add('has-image'); hero.classList.remove('is-loading'); section.classList.add('has-artwork');
+    hero.removeAttribute('aria-hidden'); hero.setAttribute('role', 'img'); hero.setAttribute('aria-label', `${artist || 'Artist'} photo`);
+  };
+  preload.onerror = () => {
+    if (generation !== state.enrichmentGeneration) return;
+    if (attempt >= 19) { $('.artwork').classList.remove('is-loading'); return; }
+    setTimeout(() => { if (generation === state.enrichmentGeneration) loadNowArtwork(image, artist, generation, attempt + 1); }, 1500);
+  };
+  preload.src = image.url;
+}
+
+function renderNowEnrichment(value, generation = state.enrichmentGeneration) {
   const panel = $('#artist-panel'); if (value.status !== 'ready') { panel.hidden = true; return; }
   panel.hidden = false; const artist = value.hint?.artist || ''; const artistButton = $('#artist-name'); artistButton.textContent = artist; artistButton.onclick = () => discover(artist);
   const genres = $('#artist-genres'); genres.replaceChildren(); (value.genres || []).slice(0, 8).forEach(name => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = name; tag.setAttribute('aria-label', `Discover ${name} music`); tag.addEventListener('click', () => discoverGenre(name)); genres.append(tag); }); $('#artist-bio').textContent = value.biography || '';
   const related = $('#related-artists'); related.replaceChildren(); if (value.related_artists?.length) { const label = document.createElement('span'); label.textContent = 'Related '; related.append(label); value.related_artists.slice(0, 6).forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.textContent = item.name; button.addEventListener('click', () => discover(item.name)); related.append(button); }); }
-  const hero = $('.artwork'); if (value.image?.url) { hero.style.backgroundImage = `linear-gradient(180deg,transparent 55%,#10140dcc),url("${value.image.url.replaceAll('"','%22')}")`; hero.classList.add('has-image'); hero.removeAttribute('aria-hidden'); hero.setAttribute('role','img'); hero.setAttribute('aria-label', `${artist || 'Artist'} photo`); } else { hero.style.backgroundImage = ''; hero.classList.remove('has-image'); hero.setAttribute('aria-hidden','true'); hero.removeAttribute('role'); hero.removeAttribute('aria-label'); }
+  loadNowArtwork(value.image, artist, generation);
   const attribution = $('#artist-attribution'); attribution.textContent = value.image?.attribution || (value.provider ? `Metadata via ${value.provider}` : ''); attribution.href = value.image?.source_url || value.artist_url || '#';
 }
 

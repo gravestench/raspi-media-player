@@ -586,5 +586,5 @@ milestone is revised:
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
-- **Integration target:** Debian 12 ARM64 Raspberry Pi at `192.168.1.25`; the
-  init.d-managed API and mpv playback daemon are deployed and verified.
+- **Integration target:** Debian 12 ARM64 Raspberry Pi; the init.d-managed API
+  and mpv playback daemon are deployed and verified.

@@ -90,8 +90,8 @@ make build-pi
 make deploy-pi
 ```
 
-`scripts/deploy-pi.sh` defaults to `dknuth@192.168.1.25`; override it with the
-`TARGET` environment variable. SSH and sudo authentication remain interactive.
+Set the Raspberry Pi SSH destination with the `TARGET` environment variable,
+for example `TARGET=user@jukebox.local make deploy-pi`. SSH and sudo authentication remain interactive.
 No password is read from a project file or stored by the script. The deployed
 service listens on port 8080, stores its database under
 `/var/lib/raspi-media-player`, and writes structured logs to
