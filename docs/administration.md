@@ -45,17 +45,20 @@ Back up the settings encryption key separately from the SQLite database. A
 database copied without its key remains usable, but encrypted provider secrets
 must be replaced.
 
-## Skip voting
+## Household voting
 
 Each browser receives a random, year-lived household-listener cookie. Signed-in
 users vote by account identity. These identifiers are used only to count recent
-activity and one vote per current item; activity and votes live in memory and
-expire automatically.
+activity and one vote per skip/removal target; activity and votes live in memory
+and expire automatically.
 
 The admin can enable voting, set the active-listener window, vote timeout, and
 required percentage. One active listener always has a threshold of one. Votes
-are cleared on track changes and are delivered in queue/SSE snapshots for
-immediate UI feedback. Administrators retain an immediate skip override.
+to skip or to remove another listener's, anonymous, or auto-queued item. Skip
+votes clear on track changes; removal votes remain scoped to their queue item.
+All votes are delivered in queue/SSE snapshots for immediate UI feedback.
+Administrators retain immediate skip and removal overrides, and signed-in users
+can always remove their own submissions directly.
 
 ## YouTube discovery and personal dashboards
 
@@ -66,4 +69,3 @@ or result counts capped in Admin; direct YouTube URL queueing remains available.
 Account dashboards are private to the current session. They combine that user's
 submitted listening history, favorites, playlists, and genre counts from cached
 enrichment. Any listed source can be queued from the dashboard.
-

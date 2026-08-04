@@ -47,7 +47,8 @@ behavior and fetch a fresh snapshot after a prolonged disconnect.
 | --- | --- | --- |
 | GET | `/api/v1/queue` | complete queue/playback/vote snapshot |
 | POST | `/api/v1/queue/items` | `url`, optional `display_name`, optional `title` |
-| DELETE | `/api/v1/queue/items/{id}` | remove item; requires revision |
+| DELETE | `/api/v1/queue/items/{id}` | remove an owned item or vote to remove another listener's item; requires revision |
+| DELETE | `/api/v1/queue/items/{id}/removal-vote` | withdraw the current listener's removal vote |
 | PUT | `/api/v1/queue/order` | `item_ids`; requires revision |
 | DELETE | `/api/v1/queue` | clear queue; requires revision |
 | POST | `/api/v1/queue/skip` | cast vote or perform allowed skip |

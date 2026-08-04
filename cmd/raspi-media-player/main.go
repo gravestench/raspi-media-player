@@ -208,10 +208,10 @@ func adminSettingDefinitions(cfg config.Config) []settings.Definition {
 		{Key: "metadata_user_agent", Label: "Metadata contact", Description: "Descriptive User-Agent required by keyless providers.", Category: "Metadata", Type: "text", Value: cfg.MetadataUserAgent, RestartRequired: true},
 		{Key: "metadata_image_dir", Label: "Artist image cache", Description: "Directory for licensed local thumbnails.", Category: "Metadata", Type: "text", Value: cfg.MetadataImageDir, RestartRequired: true},
 		{Key: "metadata_max_inflight", Label: "Metadata request budget", Description: "Maximum simultaneous enrichment jobs.", Category: "Metadata", Type: "number", Value: fmt.Sprint(cfg.MetadataMaxInflight), RestartRequired: true},
-		{Key: "vote_enabled", Label: "Skip voting", Description: "Require household consensus before skipping.", Category: "Voting", Type: "boolean", Value: "true"},
+		{Key: "vote_enabled", Label: "Household voting", Description: "Require household consensus before skipping or removing another listener's queue item.", Category: "Voting", Type: "boolean", Value: "true"},
 		{Key: "vote_active_seconds", Label: "Active listener window", Description: "Seconds a browser counts as active.", Category: "Voting", Type: "number", Value: "60"},
 		{Key: "vote_timeout_seconds", Label: "Vote timeout", Description: "Seconds before an unused vote expires.", Category: "Voting", Type: "number", Value: "90"},
-		{Key: "vote_percent", Label: "Skip threshold", Description: "Percentage of active listeners required.", Category: "Voting", Type: "number", Value: "50"},
+		{Key: "vote_percent", Label: "Vote threshold", Description: "Percentage of active listeners required.", Category: "Voting", Type: "number", Value: "50"},
 		{Key: "youtube_search_enabled", Label: "YouTube search", Description: "Allow discovery searches from the player.", Category: "YouTube", Type: "boolean", Value: "true"},
 		{Key: "youtube_search_results", Label: "Search result limit", Description: "Maximum videos returned for each search.", Category: "YouTube", Type: "number", Value: "8"},
 	}

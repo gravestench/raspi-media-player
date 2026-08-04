@@ -159,6 +159,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("PUT /api/v1/autoqueue", a.setAutoQueue)
 	mux.HandleFunc("POST /api/v1/queue/items", a.addQueueItem)
 	mux.HandleFunc("DELETE /api/v1/queue/items/{id}", a.removeQueueItem)
+	mux.HandleFunc("DELETE /api/v1/queue/items/{id}/removal-vote", a.withdrawRemovalVote)
 	mux.HandleFunc("PUT /api/v1/queue/order", a.reorderQueue)
 	mux.HandleFunc("DELETE /api/v1/queue", a.clearQueue)
 	mux.HandleFunc("POST /api/v1/queue/skip", a.skipQueueItem)

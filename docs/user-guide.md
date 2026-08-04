@@ -34,6 +34,12 @@ no email address and have no email recovery flow.
 Signed-in users gain favorites, playlists, a private listening dashboard, and a
 personal identity in history and the queue.
 
+A signed-in listener can remove their own queued items immediately. Removing an
+item submitted by somebody else, anonymously, or by auto-queue uses the same
+active-household vote threshold and timeout as skipping. The queue shows vote
+progress immediately; press the check mark to withdraw your vote. Administrators
+may remove any item directly, and a single active listener acts immediately.
+
 While a track is playing, press the heart button to add it to your listening
 profile. This is useful for recommendations selected by auto-queue or submitted
 by somebody else. Liked tracks appear on the Account screen, contribute to genre

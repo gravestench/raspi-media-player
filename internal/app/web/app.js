@@ -128,7 +128,7 @@ function sourceLabel(url) {
 }
 
 function renderQueue(items) {
-  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error]));
+  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error, item.removal_vote?.votes, item.removal_vote?.required, item.removal_vote?.voted]));
   if (signature === state.queueSignature) return;
   state.queueSignature = signature;
   const list = $('#queue-list'); list.replaceChildren(); $('#queue-empty').hidden = items.length > 0; $('#clear-button').hidden = items.length === 0;
@@ -139,12 +139,12 @@ function renderQueue(items) {
     const title = document.createElement('span'); title.className = 'queue-title'; title.textContent = item.title || sourceLabel(item.source.url); title.title = item.source.url;
     const meta = document.createElement('div'); meta.className = 'queue-meta';
     const submitter = item.submitter.kind === 'user' ? item.submitter.username : item.submitter.display_name || 'Anonymous';
-    meta.textContent = item.error ? `${submitter} · ${item.error}` : `Added by ${submitter}`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
+    meta.textContent = item.error ? `${submitter} · ${item.error}` : `Added by ${submitter}`; if (item.removal_vote?.votes) meta.textContent += ` · ${item.removal_vote.votes} of ${item.removal_vote.required} removal votes`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
     const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.status;
     const actions = document.createElement('div'); actions.className = 'item-actions';
     if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
     if (index < items.length - 1) actions.append(actionButton('↓', `Move ${title.textContent} down`, () => moveItem(index, 1)));
-    actions.append(actionButton('×', `Remove ${title.textContent}`, () => removeItem(item.id)));
+    const removal = item.removal_vote; actions.append(actionButton(removal?.voted ? '✓' : '×', removal ? (removal.voted ? `Withdraw removal vote for ${title.textContent}` : `Vote to remove ${title.textContent}`) : `Remove ${title.textContent}`, () => removeItem(item)));
     row.append(number, copy, badge, actions); list.append(row);
   });
 }
@@ -161,7 +161,7 @@ function renderQueueEnrichment(copy, details, value) {
 
 function actionButton(text, label, handler) { const button = document.createElement('button'); button.type = 'button'; button.className = 'icon-button'; button.textContent = text; button.setAttribute('aria-label', label); button.addEventListener('click', handler); return button; }
 function revisionHeader() { return { 'If-Match': `"${state.snapshot?.revision ?? 0}"` }; }
-async function removeItem(id) { try { render(await api(`/api/v1/queue/items/${id}`, { method: 'DELETE', headers: revisionHeader() })); } catch (error) { showToast(error.message); refresh(); } }
+async function removeItem(item) { try { const path = item.removal_vote?.voted ? `/api/v1/queue/items/${item.id}/removal-vote` : `/api/v1/queue/items/${item.id}`; const before = state.snapshot?.revision; const result = await api(path, { method: 'DELETE', headers: revisionHeader() }); render(result); if (result.revision === before && item.removal_vote) showToast(item.removal_vote.voted ? 'Removal vote withdrawn.' : 'Removal vote added.'); } catch (error) { showToast(error.message); refresh(); } }
 async function moveItem(index, delta) { const ids = state.snapshot.items.map(item => item.id); [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]; try { render(await api('/api/v1/queue/order', { method: 'PUT', headers: revisionHeader(), body: JSON.stringify({ item_ids: ids }) })); } catch (error) { showToast(error.message); refresh(); } }
 async function control(path, options = {}) { try { render(await api(path, { method: 'POST', ...options })); } catch (error) { showToast(error.message); } }
 async function refresh() { try { render(await api('/api/v1/queue')); } catch (error) { showToast(error.message); } }

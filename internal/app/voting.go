@@ -67,7 +67,7 @@ func listenerID(r *http.Request) string {
 
 func (m *voteManager) touch(id string) { m.mu.Lock(); m.active[id] = time.Now(); m.mu.Unlock() }
 
-func (m *voteManager) state(ctx context.Context, itemID, listener string) queuepkg.SkipVoteState {
+func (m *voteManager) state(ctx context.Context, voteKey, itemID, listener string) queuepkg.SkipVoteState {
 	policy := m.policy(ctx)
 	state := queuepkg.SkipVoteState{Enabled: policy.enabled, CurrentItemID: itemID}
 	if !policy.enabled || itemID == "" {
@@ -81,12 +81,17 @@ func (m *voteManager) state(ctx context.Context, itemID, listener string) queuep
 			delete(m.active, id)
 		}
 	}
-	for trackedItem := range m.votes {
-		if trackedItem != itemID {
+	for trackedItem, trackedVotes := range m.votes {
+		for id, votedAt := range trackedVotes {
+			if now.Sub(votedAt) > policy.timeout {
+				delete(trackedVotes, id)
+			}
+		}
+		if len(trackedVotes) == 0 {
 			delete(m.votes, trackedItem)
 		}
 	}
-	votes := m.votes[itemID]
+	votes := m.votes[voteKey]
 	for id, votedAt := range votes {
 		if now.Sub(votedAt) > policy.timeout {
 			delete(votes, id)
@@ -114,19 +119,19 @@ func (m *voteManager) state(ctx context.Context, itemID, listener string) queuep
 	return state
 }
 
-func (m *voteManager) setVote(ctx context.Context, itemID, listener string, vote bool) queuepkg.SkipVoteState {
+func (m *voteManager) setVote(ctx context.Context, voteKey, itemID, listener string, vote bool) queuepkg.SkipVoteState {
 	m.touch(listener)
 	m.mu.Lock()
-	if m.votes[itemID] == nil {
-		m.votes[itemID] = map[string]time.Time{}
+	if m.votes[voteKey] == nil {
+		m.votes[voteKey] = map[string]time.Time{}
 	}
 	if vote {
-		m.votes[itemID][listener] = time.Now()
+		m.votes[voteKey][listener] = time.Now()
 	} else {
-		delete(m.votes[itemID], listener)
+		delete(m.votes[voteKey], listener)
 	}
 	m.mu.Unlock()
-	return m.state(ctx, itemID, listener)
+	return m.state(ctx, voteKey, itemID, listener)
 }
 
 func (m *voteManager) clear(itemID string) { m.mu.Lock(); delete(m.votes, itemID); m.mu.Unlock() }
@@ -138,8 +143,19 @@ func (a *application) attachVote(r *http.Request, snapshot *queuepkg.Snapshot) {
 	if itemID == "" && len(snapshot.Items) > 0 {
 		itemID = snapshot.Items[0].ID
 	}
-	state := a.votes.state(r.Context(), itemID, listener)
+	state := a.votes.state(r.Context(), "skip:"+itemID, itemID, listener)
 	snapshot.SkipVote = &state
+	identity := identityFromContext(r.Context())
+	for index := range snapshot.Items {
+		item := &snapshot.Items[index]
+		if identity != nil && (identity.Session.User.IsAdmin || item.Submitter.UserID == identity.Session.User.ID) {
+			continue
+		}
+		removal := a.votes.state(r.Context(), "remove:"+item.ID, item.ID, listener)
+		if removal.Enabled {
+			item.RemovalVote = &removal
+		}
+	}
 }
 
 func (a *application) voteToSkip(w http.ResponseWriter, r *http.Request, vote bool) {
@@ -164,7 +180,7 @@ func (a *application) voteToSkip(w http.ResponseWriter, r *http.Request, vote bo
 			a.queueError(w, r, err)
 			return
 		}
-		a.votes.clear(itemID)
+		a.votes.clear("skip:" + itemID)
 		writeSnapshot(w, http.StatusOK, snapshot)
 		return
 	}
@@ -172,14 +188,14 @@ func (a *application) voteToSkip(w http.ResponseWriter, r *http.Request, vote bo
 		writeError(w, http.StatusConflict, "nothing_playing", "there is no current item to skip")
 		return
 	}
-	state := a.votes.setVote(r.Context(), itemID, listenerID(r), vote)
+	state := a.votes.setVote(r.Context(), "skip:"+itemID, itemID, listenerID(r), vote)
 	if vote && state.Votes >= state.Required {
 		snapshot, err = a.queue.Skip(r.Context(), revision)
 		if err != nil {
 			a.queueError(w, r, err)
 			return
 		}
-		a.votes.clear(itemID)
+		a.votes.clear("skip:" + itemID)
 		a.attachVote(r, &snapshot)
 		loggerFromContext(r.Context(), a.logger).Info("skip vote threshold reached", "queue_item_id", itemID, "votes", state.Votes, "required", state.Required)
 		writeSnapshot(w, http.StatusOK, snapshot)

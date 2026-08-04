@@ -18,14 +18,15 @@ var (
 )
 
 type Item struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title,omitempty"`
-	Source    Source    `json:"source"`
-	Submitter Submitter `json:"submitter"`
-	Position  int       `json:"position"`
-	Status    string    `json:"status"`
-	Error     string    `json:"error,omitempty"`
-	AddedAt   string    `json:"added_at"`
+	ID          string         `json:"id"`
+	Title       string         `json:"title,omitempty"`
+	Source      Source         `json:"source"`
+	Submitter   Submitter      `json:"submitter"`
+	Position    int            `json:"position"`
+	Status      string         `json:"status"`
+	Error       string         `json:"error,omitempty"`
+	AddedAt     string         `json:"added_at"`
+	RemovalVote *SkipVoteState `json:"removal_vote,omitempty"`
 }
 
 type Source struct {

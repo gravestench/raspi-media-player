@@ -88,12 +88,70 @@ func (a *application) removeQueueItem(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	snapshot, err := a.queue.Remove(r.Context(), r.PathValue("id"), revision)
+	itemID := r.PathValue("id")
+	current, err := a.queue.Snapshot(r.Context())
+	if err != nil {
+		a.internalError(w, r, "read removal vote state", err)
+		return
+	}
+	var target *queuepkg.Item
+	for index := range current.Items {
+		if current.Items[index].ID == itemID {
+			target = &current.Items[index]
+			break
+		}
+	}
+	if target == nil {
+		writeError(w, http.StatusNotFound, "queue_item_not_found", "queue item was not found")
+		return
+	}
+	identity := identityFromContext(r.Context())
+	owned := identity != nil && target.Submitter.UserID == identity.Session.User.ID
+	admin := identity != nil && identity.Session.User.IsAdmin
+	policy := a.votes.policy(r.Context())
+	if policy.enabled && !owned && !admin {
+		state := a.votes.setVote(r.Context(), "remove:"+itemID, itemID, listenerID(r), true)
+		if state.Votes < state.Required {
+			a.attachVote(r, &current)
+			loggerFromContext(r.Context(), a.logger).Info("queue removal vote changed", "queue_item_id", itemID, "votes", state.Votes, "required", state.Required)
+			writeSnapshot(w, http.StatusOK, current)
+			return
+		}
+	}
+	snapshot, err := a.queue.Remove(r.Context(), itemID, revision)
 	if err != nil {
 		a.queueError(w, r, err)
 		return
 	}
-	loggerFromContext(r.Context(), a.logger).Info("queue item removed", "queue_revision", snapshot.Revision, "queue_item_id", r.PathValue("id"))
+	a.votes.clear("remove:" + itemID)
+	a.attachVote(r, &snapshot)
+	loggerFromContext(r.Context(), a.logger).Info("queue item removed", "queue_revision", snapshot.Revision, "queue_item_id", itemID)
+	writeSnapshot(w, http.StatusOK, snapshot)
+}
+
+func (a *application) withdrawRemovalVote(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requiredRevision(w, r); !ok {
+		return
+	}
+	snapshot, err := a.queue.Snapshot(r.Context())
+	if err != nil {
+		a.internalError(w, r, "read removal vote state", err)
+		return
+	}
+	itemID := r.PathValue("id")
+	found := false
+	for _, item := range snapshot.Items {
+		if item.ID == itemID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "queue_item_not_found", "queue item was not found")
+		return
+	}
+	a.votes.setVote(r.Context(), "remove:"+itemID, itemID, listenerID(r), false)
+	a.attachVote(r, &snapshot)
 	writeSnapshot(w, http.StatusOK, snapshot)
 }
 

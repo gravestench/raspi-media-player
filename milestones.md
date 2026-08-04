@@ -417,7 +417,7 @@ Acceptance criteria:
 - A Last.fm key can be installed and tested without appearing in API responses,
   HTML, logs, or browser storage.
 
-## Milestone 13 — Household skip voting
+## Milestone 13 — Household queue voting
 
 Goal: let active listeners democratically skip an unwanted item without making
 single-listener households cumbersome.
@@ -436,6 +436,10 @@ single-listener households cumbersome.
       quorum percentage, and optional administrator override.
 - [x] Replace direct skip controls with clear vote/unvote affordances where the
       configured policy requires it.
+- [x] Require the same vote policy to remove anonymous, auto-queued, or another
+      user's queued item; retain immediate removal for owners and administrators.
+- [x] Show per-item removal vote counts in the queue and broadcast vote changes
+      without rebuilding unrelated queue state.
 - [x] Add concurrency, reconnect, expiry, identity, and threshold tests.
 
 Acceptance criteria:
