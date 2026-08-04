@@ -34,7 +34,7 @@ func (p *WikimediaProvider) Lookup(ctx context.Context, hint TrackHint) (Result,
 		Search []struct{ ID, Label, Description string } `json:"search"`
 	}
 	if err := p.get(ctx, p.wikidataURL, map[string]string{"action": "wbsearchentities", "search": hint.Artist, "language": "en", "type": "item", "limit": "5", "format": "json"}, &search); err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("wikidata artist search: %w", err)
 	}
 	if len(search.Search) == 0 {
 		return Result{}, ErrProviderNotFound
@@ -55,21 +55,21 @@ func (p *WikimediaProvider) Lookup(ctx context.Context, hint TrackHint) (Result,
 			Claims map[string][]struct {
 				Mainsnak struct {
 					Datavalue struct {
-						Value string `json:"value"`
+						Value json.RawMessage `json:"value"`
 					} `json:"datavalue"`
 				} `json:"mainsnak"`
 			} `json:"claims"`
 		} `json:"entities"`
 	}
 	if err := p.get(ctx, p.wikidataURL, map[string]string{"action": "wbgetentities", "ids": id, "props": "claims", "format": "json"}, &entity); err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("wikidata entity lookup: %w", err)
 	}
 	claims := entity.Entities[id].Claims["P18"]
 	if len(claims) == 0 {
 		return Result{}, ErrProviderNotFound
 	}
-	filename := claims[0].Mainsnak.Datavalue.Value
-	if filename == "" {
+	var filename string
+	if err := json.Unmarshal(claims[0].Mainsnak.Datavalue.Value, &filename); err != nil || filename == "" {
 		return Result{}, ErrProviderNotFound
 	}
 	title := "File:" + filename
@@ -80,23 +80,23 @@ func (p *WikimediaProvider) Lookup(ctx context.Context, hint TrackHint) (Result,
 					ThumbURL       string `json:"thumburl"`
 					DescriptionURL string `json:"descriptionurl"`
 					ExtMetadata    map[string]struct {
-						Value string `json:"value"`
+						Value json.RawMessage `json:"value"`
 					} `json:"extmetadata"`
 				} `json:"imageinfo"`
 			} `json:"pages"`
 		} `json:"query"`
 	}
 	if err := p.get(ctx, p.commonsURL, map[string]string{"action": "query", "titles": title, "prop": "imageinfo", "iiprop": "url|extmetadata", "iiurlwidth": "600", "format": "json"}, &images); err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("commons image lookup: %w", err)
 	}
 	for _, page := range images.Query.Pages {
 		if len(page.ImageInfo) == 0 {
 			continue
 		}
 		info := page.ImageInfo[0]
-		license := plainMetadata(info.ExtMetadata["LicenseShortName"].Value)
-		artist := plainMetadata(info.ExtMetadata["Artist"].Value)
-		credit := plainMetadata(info.ExtMetadata["Credit"].Value)
+		license := plainRawMetadata(info.ExtMetadata["LicenseShortName"].Value)
+		artist := plainRawMetadata(info.ExtMetadata["Artist"].Value)
+		credit := plainRawMetadata(info.ExtMetadata["Credit"].Value)
 		attribution := strings.TrimSpace(strings.Join(nonEmpty([]string{artist, credit, license}), " · "))
 		if info.ThumbURL == "" || info.DescriptionURL == "" || attribution == "" {
 			return Result{}, ErrProviderNotFound
@@ -137,6 +137,13 @@ func (p *WikimediaProvider) get(ctx context.Context, base string, params map[str
 }
 func plainMetadata(value string) string {
 	return strings.TrimSpace(html.UnescapeString(htmlPattern.ReplaceAllString(value, "")))
+}
+func plainRawMetadata(value json.RawMessage) string {
+	var text string
+	if json.Unmarshal(value, &text) != nil {
+		return ""
+	}
+	return plainMetadata(text)
 }
 func nonEmpty(values []string) []string {
 	result := make([]string, 0, len(values))

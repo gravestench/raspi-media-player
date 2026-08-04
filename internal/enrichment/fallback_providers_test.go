@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,20 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func jsonResponse(body string) *http.Response {
 	return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}
+}
+
+func TestWikimediaLiveContract(t *testing.T) {
+	if os.Getenv("LIVE_METADATA_TEST") != "1" {
+		t.Skip("set LIVE_METADATA_TEST=1")
+	}
+	provider := NewWikimediaProvider("raspi-media-player-live-test/0.1 (https://github.com/dylanknuth/raspi-media-player)", nil)
+	result, err := provider.Lookup(context.Background(), TrackHint{Artist: "David Bowie", Title: "Heroes"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validImage(result.Image) {
+		t.Fatalf("missing valid attributed image: %+v", result)
+	}
 }
 func TestMusicBrainzIdentityTagsAndRelations(t *testing.T) {
 	calls := 0
