@@ -418,14 +418,13 @@ milestone is revised:
 - **Milestone 10:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04, including diagnostics, live browser smoke testing, and playback
   resource observation.
-- **Current milestone:** v0.1.0 household release complete
-- **Current milestone:** Milestone 11 — Artist imagery and music discovery
-- **Milestone 11:** Implementation and automated boundary verification complete
-  on 2026-08-04; Raspberry Pi API, image-cache, and browser validation remain.
+- **Milestone 11:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04, including live multi-provider enrichment, attributed local image
+  caching, API/browser validation, and uninterrupted playback.
+- **Current milestone:** Household feedback and ongoing maintenance
 - **Next feature milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
-- **Integration target:** Debian 12 ARM64 Raspberry Pi at `192.168.1.25`; initial
-  API daemon deployment verified on 2026-08-04 without interrupting the existing
-  VLC/KFJC playback process.
+- **Integration target:** Debian 12 ARM64 Raspberry Pi at `192.168.1.25`; the
+  init.d-managed API and mpv playback daemon are deployed and verified.
