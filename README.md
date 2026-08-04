@@ -31,6 +31,7 @@ make test-api
 
 `scripts/test-all.sh` builds and launches an isolated server with a temporary
 SQLite database, runs all API regression scripts, and cleans up afterward.
+See [docs/testing.md](docs/testing.md) for coverage, dependencies, ports, and CI.
 
 ## API conventions
 

@@ -263,22 +263,22 @@ Goal: make regressions easy to detect on a workstation or Raspberry Pi without
 special test software.
 
 - [x] Create `scripts/test-all.sh` as the single entry point.
-- [ ] Create focused shell scripts for health, anonymous queue behavior, access
+- [x] Create focused shell scripts for health, anonymous queue behavior, access
       modes, account creation, login/logout, sessions, CSRF, queue controls,
       playback controls, stations, favorites, and playlists.
 - [x] Use `curl` plus commonly available shell tools; clearly document any
       additional dependency such as `jq`.
-- [ ] Start the server with an isolated temporary database and fake player.
+- [x] Start the server with an isolated temporary database and fake player.
 - [x] Allocate or accept a configurable test port and avoid disturbing a live
       installation.
-- [ ] Make scripts fail fast while reporting the request and assertion that
+- [x] Make scripts fail fast while reporting the request and assertion that
       failed, without printing secrets.
-- [ ] Cover success, validation, authorization, conflict, throttling, and
+- [x] Cover success, validation, authorization, conflict, throttling, and
       recovery paths.
-- [ ] Test all configured access modes.
-- [ ] Add restart/persistence and concurrent-queue regression cases.
+- [x] Test all configured access modes.
+- [x] Add restart/persistence and concurrent-queue regression cases.
 - [x] Ensure cleanup runs on success, failure, and interruption.
-- [ ] Add a CI workflow that runs formatting checks, `go vet`, Go tests, and the
+- [x] Add a CI workflow that runs formatting checks, `go vet`, Go tests, and the
       API regression suite.
 
 Acceptance criteria:
@@ -362,10 +362,11 @@ milestone is revised:
   2026-08-04.
 - **Milestone 6:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04.
-- **Milestone 7:** Complete and verified locally on 2026-08-04; Raspberry Pi
-  lifecycle validation is the final boundary check.
-- **Current milestone:** Milestone 8 — Complete API regression suite
-- **Next feature milestone:** Milestone 9 — Pluggable sources and YouTube feasibility
+- **Milestone 7:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04.
+- **Milestone 8:** Complete and verified locally on 2026-08-04.
+- **Current milestone:** Milestone 9 — Pluggable sources and YouTube feasibility
+- **Next feature milestone:** Milestone 10 — Hardening and household release
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
