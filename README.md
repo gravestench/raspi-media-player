@@ -65,7 +65,7 @@ history are documented in [docs/library.md](docs/library.md).
 
 The init.d service assets and Raspberry Pi deployment helper live in `deploy/`
 and `scripts/`. Full install, upgrade, backup, and uninstall operations are
-completed in Milestone 7.
+documented in [docs/operations.md](docs/operations.md).
 
 The current integration target is a 64-bit Debian 12 Raspberry Pi. Build and
 deploy to it with:

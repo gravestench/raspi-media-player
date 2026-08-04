@@ -238,17 +238,17 @@ Goal: install and operate the application as a conventional Raspberry Pi daemon.
 - [x] Run under a dedicated unprivileged user and group.
 - [x] Define paths for the binary, configuration, SQLite data, PID/runtime files,
       and logs without relying on an interactive home directory.
-- [ ] Provide an environment/configuration file containing access mode, bind
+- [x] Provide an environment/configuration file containing access mode, bind
       address, database path, player settings, log format/level, and limits.
-- [ ] Ensure startup waits for required local facilities and handles networking
+- [x] Ensure startup waits for required local facilities and handles networking
       becoming available later.
 - [x] Ensure stop sends `SIGTERM`, waits a bounded period, and prevents orphaned
       player processes.
-- [ ] Add install, upgrade, uninstall, and configuration-check scripts.
+- [x] Add install, upgrade, uninstall, and configuration-check scripts.
 - [x] Preserve the database and local configuration during upgrades/uninstall by
       default.
-- [ ] Add backup and restore documentation for SQLite and configuration.
-- [ ] Document enabling at boot on common Raspberry Pi OS versions.
+- [x] Add backup and restore documentation for SQLite and configuration.
+- [x] Document enabling at boot on common Raspberry Pi OS versions.
 
 Acceptance criteria:
 
@@ -360,10 +360,12 @@ milestone is revised:
 - **Milestone 5:** Complete and verified with automated tests plus desktop,
   390px-phone, multi-client SSE, anonymous, and account-flow browser testing on
   2026-08-04.
-- **Milestone 6:** Complete and verified locally on 2026-08-04; Raspberry Pi
-  deployment validation is the final boundary check.
-- **Current milestone:** Milestone 7 — init.d deployment and operations
-- **Next feature milestone:** Milestone 8 — Complete API regression suite
+- **Milestone 6:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04.
+- **Milestone 7:** Complete and verified locally on 2026-08-04; Raspberry Pi
+  lifecycle validation is the final boundary check.
+- **Current milestone:** Milestone 8 — Complete API regression suite
+- **Next feature milestone:** Milestone 9 — Pluggable sources and YouTube feasibility
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
