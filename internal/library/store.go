@@ -409,7 +409,7 @@ func (s *Store) LikeTrack(ctx context.Context, userID, kind, sourceURL, title st
 		return LikedTrack{}, errors.New("track title must be between 1 and 500 characters")
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	_, err := s.db.ExecContext(ctx, `INSERT INTO track_likes (user_id, source_kind, source_url, title, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, source_url) DO UPDATE SET source_kind = excluded.source_kind, title = excluded.title, created_at = excluded.created_at`, userID, kind, sourceURL, title, now)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO track_likes (user_id, source_kind, source_url, title, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, source_url, title) DO UPDATE SET source_kind = excluded.source_kind, created_at = excluded.created_at`, userID, kind, sourceURL, title, now)
 	return LikedTrack{SourceKind: kind, SourceURL: sourceURL, Title: title, CreatedAt: now}, err
 }
 

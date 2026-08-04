@@ -52,6 +52,10 @@ by somebody else. Liked tracks appear on the Account screen, contribute to genre
 counts, and influence the active-listener auto-queue strategy. Liking does not
 interrupt playback or add a duplicate queue item.
 
+For live radio, each changing metadata title is treated as a distinct track.
+You can therefore like several songs discovered during one KFJC listening
+session even though they share the same stream URL.
+
 ## Skip voting
 
 When skip voting is enabled, the skip control casts or withdraws a vote. The

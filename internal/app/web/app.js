@@ -54,6 +54,7 @@ function render(snapshot) {
   renderQueue(snapshot.items);
   if (enrichmentTitle && enrichmentTitle !== state.enrichmentTitle) {
     state.enrichmentTitle = enrichmentTitle;
+    $('#like-button').textContent = '♡'; $('#like-button').setAttribute('aria-label', 'Like current track');
     state.enrichmentGeneration += 1;
     resetNowArtwork(true);
     loadEnrichment(enrichmentTitle, renderNowEnrichment, 0, state.enrichmentGeneration);
@@ -250,7 +251,7 @@ async function queuePlaylist(playlist) { for (const item of playlist.items) { tr
 
 $('#pause-button').addEventListener('click', () => control('/api/v1/playback/pause'));
 $('#resume-button').addEventListener('click', () => control('/api/v1/playback/resume'));
-$('#like-button').addEventListener('click', async event => { const id = state.snapshot?.playback?.current_item_id; if (!id) return; event.currentTarget.disabled = true; try { await api(`/api/v1/queue/items/${id}/like`, { method:'PUT' }); event.currentTarget.textContent = '♥'; showToast('Added to your listening profile.'); } catch (error) { showToast(error.message); } finally { event.currentTarget.disabled = false; } });
+$('#like-button').addEventListener('click', async event => { const button = event.currentTarget; const id = state.snapshot?.playback?.current_item_id; const title = state.enrichmentTitle; if (!id) return; button.disabled = true; try { await api(`/api/v1/queue/items/${id}/like`, { method:'PUT' }); if (state.enrichmentTitle === title) { button.textContent = '♥'; button.setAttribute('aria-label', 'Current track added to your listening profile'); } showToast('Added to your listening profile.'); } catch (error) { showToast(error.message); } finally { button.disabled = false; } });
 $('#skip-button').addEventListener('click', async () => { try { const voted = state.snapshot?.skip_vote?.voted; render(await api('/api/v1/queue/skip', { method: voted ? 'DELETE' : 'POST', headers: revisionHeader() })); } catch (error) { showToast(error.message); refresh(); } });
 $('#clear-button').addEventListener('click', async () => { try { render(await api('/api/v1/queue', { method: 'DELETE', headers: revisionHeader() })); } catch (error) { showToast(error.message); } });
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });

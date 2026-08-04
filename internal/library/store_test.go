@@ -68,6 +68,19 @@ func TestHouseholdStationsPersonalLibraryAndHistory(t *testing.T) {
 	if err != nil || len(history) != 1 || history[0].Outcome != "completed" {
 		t.Fatalf("history: %+v %v", history, err)
 	}
+	if _, err := store.LikeTrack(ctx, "u1", "direct", stations[0].StreamURL, "Artist One - First Song"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.LikeTrack(ctx, "u1", "direct", stations[0].StreamURL, "Artist Two - Next Song"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.LikeTrack(ctx, "u1", "direct", stations[0].StreamURL, "Artist One - First Song"); err != nil {
+		t.Fatal(err)
+	}
+	likes, err := store.ListLikedTracks(ctx, "u1", 10)
+	if err != nil || len(likes) != 2 {
+		t.Fatalf("stream likes: %+v %v", likes, err)
+	}
 }
 
 func TestStreamMetadataCreatesDistinctHistorySegments(t *testing.T) {
