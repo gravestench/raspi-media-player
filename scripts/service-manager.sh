@@ -79,7 +79,8 @@ config_check() {
         case "$value" in ''|*[!0-9]*|0) echo "Limits and lifetimes must be positive integers" >&2; exit 1 ;; esac
     done
 	if [ "${RASPI_MEDIA_PLAYER_METADATA_ENABLED:-true}" = true ]; then
-		[ -n "${RASPI_MEDIA_PLAYER_METADATA_USER_AGENT:-}" ] || { echo "Metadata User-Agent must identify the application" >&2; exit 1; }
+		metadata_user_agent=${RASPI_MEDIA_PLAYER_METADATA_USER_AGENT:-raspi-media-player/0.1}
+		[ -n "$metadata_user_agent" ] || { echo "Metadata User-Agent must identify the application" >&2; exit 1; }
 	fi
     db_path=${RASPI_MEDIA_PLAYER_DB:-$DATA_DIR/player.sqlite}
     [ -d "$(dirname -- "$db_path")" ] || { echo "Database directory does not exist: $(dirname -- "$db_path")" >&2; exit 1; }
