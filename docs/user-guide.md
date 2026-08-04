@@ -18,6 +18,12 @@ YouTube search results have a **Queue** button. Pasted URLs are queued directly.
 Items can be reordered or removed from the Player screen. The Pi continues
 playing independently of the browser that submitted them.
 
+When an administrator configures a default radio stream, it appears as a
+protected **fallback** item at the end of the queue. Requested music always goes
+ahead of it and interrupts it promptly; when requested items finish, the radio
+resumes automatically. Clearing the queue leaves the fallback in place. Change
+or disable it from the Queue section of Administration.
+
 ![Now Playing, artist context, playback controls, and auto-queue](images/player-now-playing.png)
 
 ## Anonymous use and local accounts

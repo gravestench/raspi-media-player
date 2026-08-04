@@ -53,6 +53,10 @@ Settings are grouped into Access, Queue, Auto-queue, Playback, Library,
 Metadata, Voting, YouTube, and Service. Admin validates booleans, enumerations,
 numeric ranges, and seed lengths before storage.
 
+Queue settings include an optional **Default radio stream** and display name.
+The stream is applied dynamically without a restart. Leaving the URL empty
+disables fallback playback.
+
 ![Admin configuration groups](images/admin-settings.png)
 
 Auto-queue adds four dynamic values: enabled state, strategy, seed artists, and
@@ -79,4 +83,3 @@ sudo raspi-media-player-service config-check
 sudo service raspi-media-player restart
 sudo service raspi-media-player status
 ```
-

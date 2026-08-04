@@ -44,7 +44,7 @@ function render(snapshot) {
   const hasCurrent = Boolean(current);
   $('#pause-button').disabled = !hasCurrent || playback.paused;
   $('#resume-button').disabled = !hasCurrent || (!playback.paused && playback.status !== 'stopped');
-  $('#skip-button').disabled = !hasCurrent;
+  $('#skip-button').disabled = !hasCurrent || Boolean(current?.default);
   $('#like-button').hidden = !state.session; $('#like-button').disabled = !hasCurrent || !state.session;
   const vote = snapshot.skip_vote; const voteStatus = $('#vote-status');
   if (vote?.enabled && hasCurrent) {
@@ -128,7 +128,7 @@ function sourceLabel(url) {
 }
 
 function renderQueue(items) {
-  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error, item.removal_vote?.votes, item.removal_vote?.required, item.removal_vote?.voted]));
+  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error, item.default, item.removal_vote?.votes, item.removal_vote?.required, item.removal_vote?.voted]));
   if (signature === state.queueSignature) return;
   state.queueSignature = signature;
   const list = $('#queue-list'); list.replaceChildren(); $('#queue-empty').hidden = items.length > 0; $('#clear-button').hidden = items.length === 0;
@@ -139,12 +139,14 @@ function renderQueue(items) {
     const title = document.createElement('span'); title.className = 'queue-title'; title.textContent = item.title || sourceLabel(item.source.url); title.title = item.source.url;
     const meta = document.createElement('div'); meta.className = 'queue-meta';
     const submitter = item.submitter.kind === 'user' ? item.submitter.username : item.submitter.display_name || 'Anonymous';
-    meta.textContent = item.error ? `${submitter} · ${item.error}` : `Added by ${submitter}`; if (item.removal_vote?.votes) meta.textContent += ` · ${item.removal_vote.votes} of ${item.removal_vote.required} removal votes`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
-    const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.status;
+    meta.textContent = item.error ? `${submitter} · ${item.error}` : item.default ? 'Fallback radio · plays when the queue is empty' : `Added by ${submitter}`; if (item.removal_vote?.votes) meta.textContent += ` · ${item.removal_vote.votes} of ${item.removal_vote.required} removal votes`; const details = document.createElement('div'); details.className = 'queue-copy-details'; details.append(title, meta); copy.append(details); if (item.title) { const loading = document.createElement('span'); loading.className = 'queue-artwork-loading'; loading.setAttribute('aria-label', `Loading artist information for ${item.title}`); copy.prepend(loading); loadEnrichment(item.title, value => renderQueueEnrichment(copy, details, value)); }
+    const badge = document.createElement('span'); badge.className = 'queue-badge'; badge.textContent = item.default ? 'fallback' : item.status;
     const actions = document.createElement('div'); actions.className = 'item-actions';
-    if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
-    if (index < items.length - 1) actions.append(actionButton('↓', `Move ${title.textContent} down`, () => moveItem(index, 1)));
-    const removal = item.removal_vote; actions.append(actionButton(removal?.voted ? '✓' : '×', removal ? (removal.voted ? `Withdraw removal vote for ${title.textContent}` : `Vote to remove ${title.textContent}`) : `Remove ${title.textContent}`, () => removeItem(item)));
+    if (!item.default) {
+      if (index > 0) actions.append(actionButton('↑', `Move ${title.textContent} up`, () => moveItem(index, -1)));
+      if (index < items.length - 1 && !items[index + 1]?.default) actions.append(actionButton('↓', `Move ${title.textContent} down`, () => moveItem(index, 1)));
+      const removal = item.removal_vote; actions.append(actionButton(removal?.voted ? '✓' : '×', removal ? (removal.voted ? `Withdraw removal vote for ${title.textContent}` : `Vote to remove ${title.textContent}`) : `Remove ${title.textContent}`, () => removeItem(item)));
+    }
     row.append(number, copy, badge, actions); list.append(row);
   });
 }

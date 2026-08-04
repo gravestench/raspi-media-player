@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -15,6 +16,7 @@ var (
 	ErrNotFound  = errors.New("queue item not found")
 	ErrConflict  = errors.New("queue revision conflict")
 	ErrFull      = errors.New("queue is full")
+	ErrProtected = errors.New("queue item is protected")
 )
 
 type Item struct {
@@ -26,6 +28,7 @@ type Item struct {
 	Status      string         `json:"status"`
 	Error       string         `json:"error,omitempty"`
 	AddedAt     string         `json:"added_at"`
+	Default     bool           `json:"default"`
 	RemovalVote *SkipVoteState `json:"removal_vote,omitempty"`
 }
 
@@ -83,7 +86,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err := s.db.QueryRowContext(ctx, `SELECT revision, playback_status, volume, COALESCE(current_item_id, ''), title, position_seconds, duration_seconds, paused, buffering, playback_error FROM queue_state WHERE singleton = 1`).Scan(&snapshot.Revision, &snapshot.Playback.Status, &snapshot.Playback.Volume, &snapshot.Playback.CurrentItemID, &snapshot.Playback.Title, &snapshot.Playback.PositionSeconds, &snapshot.Playback.DurationSeconds, &snapshot.Playback.Paused, &snapshot.Playback.Buffering, &snapshot.Playback.Error); err != nil {
 		return snapshot, fmt.Errorf("read queue state: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.title, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, ''), q.playback_status, q.playback_error FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.title, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, ''), q.playback_status, q.playback_error, q.is_default FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
 	if err != nil {
 		return snapshot, fmt.Errorf("list queue: %w", err)
 	}
@@ -91,7 +94,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	snapshot.Items = make([]Item, 0)
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.ID, &item.Title, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username, &item.Status, &item.Error); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username, &item.Status, &item.Error, &item.Default); err != nil {
 			return snapshot, fmt.Errorf("scan queue item: %w", err)
 		}
 		item.Submitter.Kind = "anonymous"
@@ -119,11 +122,20 @@ func (s *Store) AddSourceTitled(ctx context.Context, sourceKind, sourceURL, titl
 	}
 	defer tx.Rollback()
 	var count, position int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(position), -1) + 1 FROM queue_items`).Scan(&count, &position); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(position), -1) + 1 FROM queue_items WHERE is_default = 0`).Scan(&count, &position); err != nil {
 		return Snapshot{}, Item{}, err
 	}
 	if count >= limit {
 		return Snapshot{}, Item{}, ErrFull
+	}
+	var fallbackPosition int
+	if err := tx.QueryRowContext(ctx, `SELECT position FROM queue_items WHERE is_default = 1`).Scan(&fallbackPosition); err == nil {
+		position = fallbackPosition
+		if _, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = ? WHERE is_default = 1`, fallbackPosition+1); err != nil {
+			return Snapshot{}, Item{}, err
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return Snapshot{}, Item{}, err
 	}
 	item := Item{ID: newID(), Title: title, Source: Source{Kind: sourceKind, URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	var userID any
@@ -150,11 +162,16 @@ func (s *Store) AddSourceTitled(ctx context.Context, sourceKind, sourceURL, titl
 
 func (s *Store) Remove(ctx context.Context, id string, expected int64) (Snapshot, error) {
 	return s.mutate(ctx, expected, func(tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE id = ?`, id)
+		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE id = ? AND is_default = 0`, id)
 		if err != nil {
 			return err
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
+			var exists int
+			_ = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE id = ?`, id).Scan(&exists)
+			if exists > 0 {
+				return ErrProtected
+			}
 			return ErrNotFound
 		}
 		return compact(ctx, tx)
@@ -162,16 +179,27 @@ func (s *Store) Remove(ctx context.Context, id string, expected int64) (Snapshot
 }
 
 func (s *Store) Clear(ctx context.Context, expected int64) (Snapshot, error) {
-	return s.mutate(ctx, expected, func(tx *sql.Tx) error { _, err := tx.ExecContext(ctx, `DELETE FROM queue_items`); return err })
+	return s.mutate(ctx, expected, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE is_default = 0`)
+		if err == nil {
+			err = compact(ctx, tx)
+		}
+		return err
+	})
 }
 
 func (s *Store) Skip(ctx context.Context, expected int64) (Snapshot, error) {
 	return s.mutate(ctx, expected, func(tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE position = 0`)
+		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE position = 0 AND is_default = 0`)
 		if err != nil {
 			return err
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
+			var defaults int
+			_ = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE position = 0 AND is_default = 1`).Scan(&defaults)
+			if defaults > 0 {
+				return ErrProtected
+			}
 			return ErrNotFound
 		}
 		return compact(ctx, tx)
@@ -204,8 +232,107 @@ func (s *Store) Reorder(ctx context.Context, ids []string, expected int64) (Snap
 			}
 		}
 		_, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = -position - 1`)
-		return err
+		if err != nil {
+			return err
+		}
+		return pinDefaultLast(ctx, tx)
 	})
+}
+
+func (s *Store) EnsureDefault(ctx context.Context, sourceURL, title string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	sourceURL = strings.TrimSpace(sourceURL)
+	title = strings.TrimSpace(title)
+	changed := false
+	if sourceURL == "" {
+		result, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE is_default = 1`)
+		if err != nil {
+			return err
+		}
+		rows, _ := result.RowsAffected()
+		changed = rows > 0
+	} else {
+		var id, existingURL string
+		err := tx.QueryRowContext(ctx, `SELECT id, source_url FROM queue_items WHERE is_default = 1`).Scan(&id, &existingURL)
+		if errors.Is(err, sql.ErrNoRows) {
+			var duplicate int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE source_url = ?`, sourceURL).Scan(&duplicate); err != nil {
+				return err
+			}
+			if duplicate == 0 {
+				var position int
+				if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(position), -1) + 1 FROM queue_items`).Scan(&position); err != nil {
+					return err
+				}
+				_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, title, source_kind, source_url, display_name, position, added_at, is_default) VALUES (?, ?, 'direct', ?, 'Default radio', ?, ?, 1)`, newID(), title, sourceURL, position, time.Now().UTC().Format(time.RFC3339Nano))
+				if err != nil {
+					return err
+				}
+				changed = true
+			}
+		} else if err != nil {
+			return err
+		} else {
+			var duplicate int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE source_url = ? AND id <> ?`, sourceURL, id).Scan(&duplicate); err != nil {
+				return err
+			}
+			if duplicate > 0 {
+				if _, err := tx.ExecContext(ctx, `DELETE FROM queue_items WHERE id = ?`, id); err != nil {
+					return err
+				}
+				changed = true
+			} else {
+				result, err := tx.ExecContext(ctx, `UPDATE queue_items SET title = CASE WHEN source_url <> ? THEN ? ELSE title END, source_url = ?, display_name = 'Default radio', playback_status = CASE WHEN playback_status = 'failed' THEN 'queued' ELSE playback_status END, playback_error = CASE WHEN playback_status = 'failed' THEN '' ELSE playback_error END WHERE id = ? AND (source_url <> ? OR playback_status = 'failed')`, sourceURL, title, sourceURL, id, sourceURL)
+				if err != nil {
+					return err
+				}
+				rows, _ := result.RowsAffected()
+				changed = rows > 0 || existingURL != sourceURL
+			}
+		}
+		if err := pinDefaultLast(ctx, tx); err != nil {
+			return err
+		}
+	}
+	if !changed {
+		return tx.Commit()
+	}
+	if err := compact(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_state SET revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func pinDefaultLast(ctx context.Context, tx *sql.Tx) error {
+	var id string
+	var position, maximum int
+	if err := tx.QueryRowContext(ctx, `SELECT id, position FROM queue_items WHERE is_default = 1`).Scan(&id, &position); errors.Is(err, sql.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(position), 0) FROM queue_items`).Scan(&maximum); err != nil {
+		return err
+	}
+	if position == maximum {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = -1 WHERE id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = position - 1 WHERE position > ?`, position); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE queue_items SET position = ? WHERE id = ?`, maximum, id)
+	return err
 }
 
 func (s *Store) SetCurrent(ctx context.Context, id string) error {

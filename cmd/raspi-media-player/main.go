@@ -18,6 +18,7 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/config"
 	"github.com/dylanknuth/raspi-media-player/internal/database"
 	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
+	"github.com/dylanknuth/raspi-media-player/internal/fallback"
 	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/logging"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
@@ -87,6 +88,12 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	fallbackManager := fallback.New(queuepkg.NewStore(db), storedSettings, logger)
+	if err := fallbackManager.Sync(ctx); err != nil {
+		logger.Error("default radio initialization failed", "error", err)
+		os.Exit(1)
+	}
+	go fallbackManager.Run(ctx)
 
 	var playbackController *playback.Controller
 	libraryStore := library.NewStore(db, time.Duration(cfg.HistoryDays)*24*time.Hour)
@@ -188,6 +195,8 @@ func adminSettingDefinitions(cfg config.Config) []settings.Definition {
 		{Key: "argon_iterations", Label: "Password hash iterations", Description: "Argon2id iteration count.", Category: "Access", Type: "number", Value: fmt.Sprint(cfg.ArgonTime), RestartRequired: true},
 		{Key: "queue_limit", Label: "Queue limit", Description: "Maximum number of queued items.", Category: "Queue", Type: "number", Value: fmt.Sprint(cfg.QueueLimit), RestartRequired: true},
 		{Key: "queue_rate", Label: "Queue rate limit", Description: "Anonymous additions per client each minute.", Category: "Queue", Type: "number", Value: fmt.Sprint(cfg.QueueRate), RestartRequired: true},
+		{Key: "default_radio_url", Label: "Default radio stream", Description: "Optional HTTP(S) stream pinned to the back and played whenever nothing else is queued.", Category: "Queue", Type: "text", Value: ""},
+		{Key: "default_radio_name", Label: "Default radio name", Description: "Label shown until live track metadata arrives.", Category: "Queue", Type: "text", Value: "Default radio"},
 		{Key: "auto_queue_enabled", Label: "Auto-queue", Description: "Keep the queue filled using the selected recommendation strategy.", Category: "Auto-queue", Type: "boolean", Value: "false"},
 		{Key: "auto_queue_mode", Label: "Recommendation strategy", Description: "Rotate fairly through active listeners, use chosen seeds, or follow the last queued item.", Category: "Auto-queue", Type: "select", Value: "active_users", Options: []string{"active_users", "specific_seeds", "related_last"}},
 		{Key: "auto_queue_artists", Label: "Seed artists", Description: "Comma-separated artists used by the specific artists or genres strategy.", Category: "Auto-queue", Type: "text", Value: ""},

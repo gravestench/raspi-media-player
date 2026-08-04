@@ -4,6 +4,10 @@ The shared queue is available without authentication in the default open mode.
 All responses are JSON. A queue snapshot contains a monotonic `revision`, ordered
 `items`, and `playback` state. The same revision is returned as an `ETag`.
 
+An administrator-configured fallback radio has `default: true`. It is pinned
+after requested items and cannot be removed, skipped, or moved. Clearing removes
+requested items but preserves the fallback; clearing the Admin URL disables it.
+
 ## Endpoints
 
 - `GET /api/v1/queue` returns the current snapshot.

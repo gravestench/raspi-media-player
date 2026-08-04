@@ -568,6 +568,28 @@ Acceptance criteria:
 
 ---
 
+## Milestone 21 — Default fallback radio
+
+Goal: keep the household speaker useful between requests without mixing fallback
+radio into recommendation logic or ordinary queue ownership.
+
+- [x] Add dynamically configurable fallback stream URL and label settings.
+- [x] Pin one protected fallback item after all requested and auto-queued items.
+- [x] Interrupt fallback playback when a request arrives and resume it when the
+      requested queue drains.
+- [x] Preserve the fallback across clear/reorder operations and exclude it from
+      queue limits, auto-queue depth, removal voting, and skip voting.
+- [x] Preserve changing live stream metadata and enrichment on the fallback.
+- [x] Add queue, migration, API, and regression coverage.
+
+Acceptance criteria:
+
+- The configured station plays whenever no requested item is waiting.
+- Requested media always takes priority and the fallback remains last.
+- Administrators can change or disable the fallback without restarting.
+
+---
+
 ## Deferred ideas
 
 These are intentionally outside the first household-ready release unless a
@@ -617,6 +639,8 @@ milestone is revised:
   related-artist/genre continuation from the last queued item.
 - **Milestone 20:** Unified Now Playing enrichment plus persistent personal
   likes that feed the account dashboard and recommendation profile.
+- **Milestone 21:** Protected, dynamically configurable default radio playback
+  at the back of the shared queue.
 - **Current milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5

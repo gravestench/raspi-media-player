@@ -144,10 +144,19 @@ func (a *application) attachVote(r *http.Request, snapshot *queuepkg.Snapshot) {
 		itemID = snapshot.Items[0].ID
 	}
 	state := a.votes.state(r.Context(), "skip:"+itemID, itemID, listener)
+	for _, item := range snapshot.Items {
+		if item.ID == itemID && item.Default {
+			state.Enabled = false
+			break
+		}
+	}
 	snapshot.SkipVote = &state
 	identity := identityFromContext(r.Context())
 	for index := range snapshot.Items {
 		item := &snapshot.Items[index]
+		if item.Default {
+			continue
+		}
 		if identity != nil && (identity.Session.User.IsAdmin || item.Submitter.UserID == identity.Session.User.ID) {
 			continue
 		}
@@ -173,6 +182,12 @@ func (a *application) voteToSkip(w http.ResponseWriter, r *http.Request, vote bo
 	itemID := snapshot.Playback.CurrentItemID
 	if itemID == "" && len(snapshot.Items) > 0 {
 		itemID = snapshot.Items[0].ID
+	}
+	for _, item := range snapshot.Items {
+		if item.ID == itemID && item.Default {
+			writeError(w, http.StatusConflict, "default_radio_protected", "the default radio cannot be skipped; add something to the queue instead")
+			return
+		}
 	}
 	if !policy.enabled || (identity != nil && identity.Session.User.IsAdmin) {
 		snapshot, err = a.queue.Skip(r.Context(), revision)

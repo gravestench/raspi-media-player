@@ -45,12 +45,12 @@ behavior and fetch a fresh snapshot after a prolonged disconnect.
 
 | Method | Route | Body / purpose |
 | --- | --- | --- |
-| GET | `/api/v1/queue` | complete queue/playback/vote snapshot |
+| GET | `/api/v1/queue` | complete queue/playback/vote snapshot; fallback items have `default: true` |
 | POST | `/api/v1/queue/items` | `url`, optional `display_name`, optional `title` |
 | DELETE | `/api/v1/queue/items/{id}` | remove an owned item or vote to remove another listener's item; requires revision |
 | DELETE | `/api/v1/queue/items/{id}/removal-vote` | withdraw the current listener's removal vote |
 | PUT | `/api/v1/queue/order` | `item_ids`; requires revision |
-| DELETE | `/api/v1/queue` | clear queue; requires revision |
+| DELETE | `/api/v1/queue` | clear requested items while preserving the default radio; requires revision |
 | POST | `/api/v1/queue/skip` | cast vote or perform allowed skip |
 | DELETE | `/api/v1/queue/skip` | withdraw current listener's vote |
 | POST | `/api/v1/playback/pause` | pause current item |
