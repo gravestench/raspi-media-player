@@ -17,10 +17,10 @@ jobs:
   edge:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -48,7 +48,18 @@ jobs:
           gh release delete edge --yes --cleanup-tag || true
           git tag -f edge "$GITHUB_SHA"
           git push origin refs/tags/edge --force
-          gh release create edge dist/*.tar.gz dist/checksums.txt \
-            --verify-tag --prerelease --latest=false \
-            --title "Bleeding edge ($VERSION)" \
-            --notes "Automated build of commit $GITHUB_SHA from main. This build may be unstable and is replaced after the next successful main build."
+          for attempt in 1 2 3 4 5; do
+            if gh release create edge dist/*.tar.gz dist/checksums.txt \
+              --verify-tag --prerelease --latest=false \
+              --title "Bleeding edge ($VERSION)" \
+              --notes "Automated build of commit $GITHUB_SHA from main. This build may be unstable and is replaced after the next successful main build."; then
+              exit 0
+            fi
+            if gh release view edge >/dev/null 2>&1; then
+              gh release upload edge dist/*.tar.gz dist/checksums.txt --clobber
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Could not publish the rolling edge release after five attempts." >&2
+          exit 1
