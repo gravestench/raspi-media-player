@@ -18,7 +18,7 @@ For a bundle already copied onto the Pi:
 ```sh
 sudo ./service-manager.sh install /path/to/bundle
 sudo ./service-manager.sh upgrade /path/to/bundle
-sudo ./service-manager.sh config-check
+sudo raspi-media-player-service config-check
 ```
 
 Use `sudo service raspi-media-player start|stop|restart|status`. Installation
@@ -36,7 +36,7 @@ paths, structured logging, access mode and rate limits, session/password
 settings, mpv/audio settings, retry policy, and history retention.
 
 ```sh
-sudo /path/to/service-manager.sh config-check
+sudo raspi-media-player-service config-check
 sudo service raspi-media-player restart
 ```
 
@@ -64,7 +64,7 @@ sudo service raspi-media-player start
 
 ## Uninstall
 
-`sudo ./service-manager.sh uninstall` stops and disables the daemon and removes
+`sudo raspi-media-player-service uninstall` stops and disables the daemon and removes
 the executable and init script. It deliberately preserves the database,
 configuration, logs, and service account so a reinstall or manual recovery is
 possible. Remove those preserved paths manually only after taking a backup.
