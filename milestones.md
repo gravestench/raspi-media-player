@@ -112,18 +112,18 @@ Acceptance criteria:
 
 Goal: provide useful jukebox behavior without requiring login or a player.
 
-- [ ] Define queue item, source, submitter, and playback-state models.
-- [ ] Create APIs to list the queue and add a direct stream URL.
-- [ ] Create APIs to remove an item, reorder the queue, clear the queue, and
+- [x] Define queue item, source, submitter, and playback-state models.
+- [x] Create APIs to list the queue and add a direct stream URL.
+- [x] Create APIs to remove an item, reorder the queue, clear the queue, and
       skip the current item.
-- [ ] Allow anonymous queue submissions and attribute them as anonymous with an
+- [x] Allow anonymous queue submissions and attribute them as anonymous with an
       optional display name stored in the browser.
-- [ ] Validate URLs, supported schemes, item lengths, and request sizes.
-- [ ] Add optimistic concurrency or queue revision numbers to prevent clients
+- [x] Validate URLs, supported schemes, item lengths, and request sizes.
+- [x] Add optimistic concurrency or queue revision numbers to prevent clients
       from silently overwriting newer changes.
-- [ ] Persist the queue and playback state in SQLite.
-- [ ] Establish configurable queue limits and per-client rate limiting.
-- [ ] Return stable error codes for invalid URLs, duplicates, conflicts, queue
+- [x] Persist the queue and playback state in SQLite.
+- [x] Establish configurable queue limits and per-client rate limiting.
+- [x] Return stable error codes for invalid URLs, duplicates, conflicts, queue
       limits, and unavailable sources.
 
 Acceptance criteria:
@@ -353,8 +353,9 @@ milestone is revised:
 - **Milestone 0:** Foundation implementation complete; Raspberry Pi deployment
   validation remains pending.
 - **Milestone 1:** Complete and verified on 2026-08-04.
-- **Current milestone:** Milestone 2 — Anonymous shared queue API
-- **Next feature milestone:** Milestone 3 — Optional local accounts and sessions
+- **Milestone 2:** Complete and verified on 2026-08-04.
+- **Current milestone:** Milestone 3 — Optional local accounts and sessions
+- **Next feature milestone:** Milestone 4 — Raspberry Pi playback controller
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10

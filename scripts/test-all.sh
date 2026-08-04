@@ -36,4 +36,5 @@ until curl --silent --fail "$TEST_BASE_URL/api/v1/health/ready" >/dev/null; do
 done
 
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-health.sh"
+TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-queue.sh"
 echo "All API regression tests passed."

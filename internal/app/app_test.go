@@ -12,7 +12,7 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/database"
 )
 
-func testHandler(t *testing.T, logs *bytes.Buffer) http.Handler {
+func testHandler(t *testing.T, logs *bytes.Buffer, options ...Options) http.Handler {
 	t.Helper()
 	db, err := database.Open(filepath.Join(t.TempDir(), "test.sqlite"))
 	if err != nil {
@@ -20,7 +20,7 @@ func testHandler(t *testing.T, logs *bytes.Buffer) http.Handler {
 	}
 	t.Cleanup(func() { db.Close() })
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
-	return New(logger, db, BuildInfo{Version: "test", Commit: "abc", BuiltAt: "now"})
+	return New(logger, db, BuildInfo{Version: "test", Commit: "abc", BuiltAt: "now"}, options...)
 }
 
 func TestHealthAndVersionEndpoints(t *testing.T) {

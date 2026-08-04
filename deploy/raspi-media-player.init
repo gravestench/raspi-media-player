@@ -31,7 +31,9 @@ case "$1" in
       -addr "${RASPI_MEDIA_PLAYER_ADDR:-0.0.0.0:8080}" \
       -db "${RASPI_MEDIA_PLAYER_DB:-/var/lib/raspi-media-player/player.sqlite}" \
       -log-format "${RASPI_MEDIA_PLAYER_LOG_FORMAT:-json}" \
-      -log-level "${RASPI_MEDIA_PLAYER_LOG_LEVEL:-info}"
+      -log-level "${RASPI_MEDIA_PLAYER_LOG_LEVEL:-info}" \
+      -queue-limit "${RASPI_MEDIA_PLAYER_QUEUE_LIMIT:-100}" \
+      -queue-rate "${RASPI_MEDIA_PLAYER_QUEUE_RATE:-20}"
     log_end_msg $?
     ;;
   stop)

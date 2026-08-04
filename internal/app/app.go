@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
 )
 
 //go:embed web/*
@@ -22,19 +24,37 @@ type BuildInfo struct {
 }
 
 type application struct {
-	logger *slog.Logger
-	db     *sql.DB
-	build  BuildInfo
+	logger  *slog.Logger
+	db      *sql.DB
+	build   BuildInfo
+	queue   *queuepkg.Store
+	options Options
+	limiter *rateLimiter
+}
+
+type Options struct {
+	QueueLimit int
+	QueueRate  int
 }
 
 type requestLoggerKey struct{}
 
-func New(logger *slog.Logger, db *sql.DB, build BuildInfo) http.Handler {
-	a := &application{logger: logger, db: db, build: build}
+func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) http.Handler {
+	opts := Options{QueueLimit: 100, QueueRate: 20}
+	if len(options) > 0 {
+		opts = options[0]
+	}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
 	mux.HandleFunc("GET /api/v1/version", a.version)
+	mux.HandleFunc("GET /api/v1/queue", a.getQueue)
+	mux.HandleFunc("POST /api/v1/queue/items", a.addQueueItem)
+	mux.HandleFunc("DELETE /api/v1/queue/items/{id}", a.removeQueueItem)
+	mux.HandleFunc("PUT /api/v1/queue/order", a.reorderQueue)
+	mux.HandleFunc("DELETE /api/v1/queue", a.clearQueue)
+	mux.HandleFunc("POST /api/v1/queue/skip", a.skipQueueItem)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
 	return requestLogging(logger, mux)

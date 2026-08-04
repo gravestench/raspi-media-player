@@ -49,6 +49,9 @@ response size, and remote address.
 See [docs/logging.md](docs/logging.md) for the complete logging contract and
 daemon log location.
 
+The anonymous shared queue API is documented in
+[docs/queue-api.md](docs/queue-api.md).
+
 ## Daemon deployment
 
 Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi

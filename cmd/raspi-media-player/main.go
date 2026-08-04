@@ -30,6 +30,8 @@ func main() {
 	flag.StringVar(&cfg.DatabasePath, "db", cfg.DatabasePath, "SQLite database path")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "log format: json or text")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "log level: debug, info, warn, or error")
+	flag.IntVar(&cfg.QueueLimit, "queue-limit", cfg.QueueLimit, "maximum number of queued items")
+	flag.IntVar(&cfg.QueueRate, "queue-rate", cfg.QueueRate, "anonymous queue additions allowed per client per minute")
 	flag.Parse()
 
 	logger, err := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
@@ -47,7 +49,7 @@ func main() {
 	defer db.Close()
 
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler := app.New(logger, db, build)
+	handler := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate})
 	server := &http.Server{
 		Addr:              cfg.Address,
 		Handler:           handler,
