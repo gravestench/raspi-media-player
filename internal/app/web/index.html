@@ -62,10 +62,13 @@
         <div class="track-details">
           <h1 id="now-playing-heading">Nothing playing</h1>
           <p id="now-source">Add a radio stream or audio URL to get started.</p>
-          <aside id="artist-panel" class="artist-panel" hidden>
-            <img id="artist-image" alt="" hidden>
-            <div><strong id="artist-name"></strong><div id="artist-genres" class="artist-genres"></div><p id="artist-bio"></p><div id="related-artists" class="related-artists"></div><a id="artist-attribution" target="_blank" rel="noopener noreferrer"></a></div>
-          </aside>
+          <div id="artist-panel" class="artist-context" hidden>
+            <button id="artist-name" class="artist-link" type="button"></button>
+            <div id="artist-genres" class="artist-genres" aria-label="Explore genres"></div>
+            <p id="artist-bio"></p>
+            <div id="related-artists" class="related-artists" aria-label="Related artists"></div>
+            <a id="artist-attribution" target="_blank" rel="noopener noreferrer"></a>
+          </div>
           <div class="progress-wrap">
             <progress id="playback-progress" max="1" value="0" aria-label="Playback progress"></progress>
             <div class="times"><span id="position">0:00</span><span id="duration">Live</span></div>
@@ -98,7 +101,7 @@
     <section class="discovery-section app-page" data-page="discover" hidden aria-labelledby="youtube-heading">
       <div class="section-label dark">DISCOVER</div><h2 id="youtube-heading">Search YouTube</h2><p>Find a video and queue its audio without leaving the jukebox. Direct YouTube URLs still work above.</p>
       <form id="youtube-search-form" class="search-form"><label><span>Artist, song, or video</span><input id="youtube-query" type="search" required maxlength="120" placeholder="Search YouTube…" autocomplete="off"></label><button class="button button-primary" type="submit">Search</button></form>
-      <div id="youtube-status" class="library-note" role="status"></div><div id="youtube-results" class="youtube-results" aria-live="polite"></div>
+      <div id="youtube-status" class="library-note" role="status"></div><div id="local-discovery" class="local-discovery" aria-live="polite"></div><div id="youtube-results" class="youtube-results" aria-live="polite"></div>
     </section>
 
     <section class="library-section app-page" data-page="library" hidden aria-labelledby="stations-heading">

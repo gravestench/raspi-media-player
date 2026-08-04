@@ -39,6 +39,10 @@ func NewCoordinator(store *Store, ttl time.Duration, providers ...Provider) *Coo
 
 func (c *Coordinator) ObserveTitle(ctx context.Context, title string) { _, _ = c.Lookup(ctx, title) }
 
+func (c *Coordinator) Search(ctx context.Context, query string, limit int) ([]Result, error) {
+	return c.store.Search(ctx, query, limit)
+}
+
 func (c *Coordinator) Lookup(ctx context.Context, title string) (Result, error) {
 	hint := ParseTitle(title)
 	if hint.Artist == "" {

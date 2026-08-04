@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,38 @@ func (s *Store) Get(ctx context.Context, key string) (Result, error) {
 		return Result{}, err
 	}
 	return value, nil
+}
+
+func (s *Store) Search(ctx context.Context, query string, limit int) ([]Result, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []Result{}, nil
+	}
+	if limit < 1 || limit > 100 {
+		limit = 30
+	}
+	pattern := "%" + strings.ToLower(query) + "%"
+	rows, err := s.db.QueryContext(ctx, `SELECT cache_key, artist, title, provider, artist_url, image_url, image_source_url, image_attribution, biography, genres_json, related_artists_json, status, error_code, COALESCE(fetched_at, ''), expires_at FROM media_enrichments WHERE status = 'ready' AND (lower(artist) LIKE ? OR lower(title) LIKE ? OR lower(genres_json) LIKE ? OR lower(related_artists_json) LIKE ?) ORDER BY updated_at DESC LIMIT ?`, pattern, pattern, pattern, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	results := make([]Result, 0)
+	for rows.Next() {
+		var value Result
+		var genresJSON, relatedJSON string
+		if err := rows.Scan(&value.CacheKey, &value.Hint.Artist, &value.Hint.Title, &value.Provider, &value.ArtistURL, &value.Image.URL, &value.Image.SourceURL, &value.Image.Attribution, &value.Biography, &genresJSON, &relatedJSON, &value.Status, &value.ErrorCode, &value.FetchedAt, &value.ExpiresAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(genresJSON), &value.Genres); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(relatedJSON), &value.RelatedArtists); err != nil {
+			return nil, err
+		}
+		results = append(results, value)
+	}
+	return results, rows.Err()
 }
 
 func (s *Store) Put(ctx context.Context, value Result) error {

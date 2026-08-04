@@ -189,6 +189,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("GET /api/v1/account", a.accountDashboard)
 	mux.HandleFunc("GET /api/v1/youtube/search", a.searchYouTube)
 	mux.HandleFunc("GET /api/v1/enrichment", a.getEnrichment)
+	mux.HandleFunc("GET /api/v1/discovery", a.searchDiscovery)
 	mux.HandleFunc("GET /api/v1/enrichment/images/{key}", a.getEnrichmentImage)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))

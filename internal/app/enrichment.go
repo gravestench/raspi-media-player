@@ -9,6 +9,24 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
 )
 
+func (a *application) searchDiscovery(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" || len(query) > 120 {
+		writeError(w, http.StatusUnprocessableEntity, "invalid_discovery_query", "discovery query must be between 1 and 120 characters")
+		return
+	}
+	if a.enrichment == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"query": query, "matches": []any{}})
+		return
+	}
+	matches, err := a.enrichment.Search(r.Context(), query, 30)
+	if err != nil {
+		a.internalError(w, r, "search discovery", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"query": query, "matches": matches})
+}
+
 func (a *application) getEnrichment(w http.ResponseWriter, r *http.Request) {
 	title := strings.TrimSpace(r.URL.Query().Get("title"))
 	if title == "" {

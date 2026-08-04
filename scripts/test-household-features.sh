@@ -13,6 +13,8 @@ account=$(curl --silent --show-error --fail --cookie "$tmp/cookies" "$TEST_BASE_
 
 youtube_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$TEST_BASE_URL/api/v1/youtube/search")
 [ "$youtube_status" = 422 ] || { echo "YouTube search validation: expected 422, got $youtube_status" >&2; exit 1; }
+discovery=$(curl --silent --show-error --fail --get --data-urlencode 'q=jazz' "$TEST_BASE_URL/api/v1/discovery")
+[ "$(printf '%s' "$discovery" | jq -r '.matches | type')" = array ] || { echo "local discovery results missing" >&2; exit 1; }
 
 queue=$(curl --silent --show-error --fail "$TEST_BASE_URL/api/v1/queue")
 [ "$(printf '%s' "$queue" | jq -r '.skip_vote.enabled')" = true ] || { echo "skip vote state missing from queue snapshot" >&2; exit 1; }
