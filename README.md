@@ -46,6 +46,9 @@ when valid; otherwise the service creates one. HTTP request completion is logged
 as a structured event containing the request ID, method, path, status, duration,
 response size, and remote address.
 
+See [docs/logging.md](docs/logging.md) for the complete logging contract and
+daemon log location.
+
 ## Daemon deployment
 
 Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi

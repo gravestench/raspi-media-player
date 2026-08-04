@@ -27,6 +27,8 @@ type application struct {
 	build  BuildInfo
 }
 
+type requestLoggerKey struct{}
+
 func New(logger *slog.Logger, db *sql.DB, build BuildInfo) http.Handler {
 	a := &application{logger: logger, db: db, build: build}
 	mux := http.NewServeMux()
@@ -46,7 +48,7 @@ func (a *application) ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := contextWithTimeout(r, 2*time.Second)
 	defer cancel()
 	if err := a.db.PingContext(ctx); err != nil {
-		a.logger.ErrorContext(ctx, "readiness check failed", "error", err)
+		loggerFromContext(ctx, a.logger).ErrorContext(ctx, "readiness check failed", "error", err)
 		writeError(w, http.StatusServiceUnavailable, "not_ready", "service is not ready")
 		return
 	}
@@ -99,16 +101,25 @@ func requestLogging(logger *slog.Logger, next http.Handler) http.Handler {
 			requestID = newRequestID()
 		}
 		w.Header().Set("X-Request-ID", requestID)
+		requestLogger := logger.With("request_id", requestID)
+		r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey{}, requestLogger))
 		recorder := &responseRecorder{ResponseWriter: w}
 		next.ServeHTTP(recorder, r)
-		logger.Info("http request",
-			"request_id", requestID,
+		requestLogger.Info("http request",
 			"method", r.Method,
 			"path", r.URL.Path,
+			"route", r.Pattern,
 			"status", recorder.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 			"response_bytes", recorder.size,
 			"remote_address", r.RemoteAddr,
 		)
 	})
+}
+
+func loggerFromContext(ctx context.Context, fallback *slog.Logger) *slog.Logger {
+	if logger, ok := ctx.Value(requestLoggerKey{}).(*slog.Logger); ok {
+		return logger
+	}
+	return fallback
 }

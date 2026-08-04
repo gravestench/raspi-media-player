@@ -96,10 +96,11 @@ Goal: make every subsequent feature diagnosable on the Raspberry Pi.
       logs emitted for that request.
 - [x] Log method, route, status, duration, response size, remote address, and
       authenticated username/user ID when available.
-- [ ] Add structured lifecycle, database, queue, source, and player events.
-- [ ] Redact passwords, cookies, authorization values, stream credentials, and
+- [x] Add structured lifecycle and database events; require queue, source, and
+      player milestones to add their own component events.
+- [x] Redact passwords, cookies, authorization values, stream credentials, and
       session tokens.
-- [ ] Document expected log fields and examples for init.d/syslog operation.
+- [x] Document expected log fields and examples for init.d operation.
 
 Acceptance criteria:
 
@@ -351,8 +352,9 @@ milestone is revised:
 
 - **Milestone 0:** Foundation implementation complete; Raspberry Pi deployment
   validation remains pending.
-- **Current milestone:** Milestone 1 — Structured logging and request observability
-- **Next feature milestone:** Milestone 2 — Anonymous shared queue API
+- **Milestone 1:** Complete and verified on 2026-08-04.
+- **Current milestone:** Milestone 2 — Anonymous shared queue API
+- **Next feature milestone:** Milestone 3 — Optional local accounts and sessions
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
