@@ -55,21 +55,27 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("begin migration %s: %w", entry.Name(), err)
+		if err := applyMigration(ctx, db, entry.Name(), string(contents)); err != nil {
+			return err
 		}
-		if _, err := tx.ExecContext(ctx, string(contents)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("apply migration %s: %w", entry.Name(), err)
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (name) VALUES (?)`, entry.Name()); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("record migration %s: %w", entry.Name(), err)
-		}
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit migration %s: %w", entry.Name(), err)
-		}
+	}
+	return nil
+}
+
+func applyMigration(ctx context.Context, db *sql.DB, name, contents string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin migration %s: %w", name, err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, contents); err != nil {
+		return fmt.Errorf("apply migration %s: %w", name, err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (name) VALUES (?)`, name); err != nil {
+		return fmt.Errorf("record migration %s: %w", name, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit migration %s: %w", name, err)
 	}
 	return nil
 }

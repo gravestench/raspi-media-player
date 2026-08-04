@@ -8,6 +8,8 @@ BINARY_PATH=/usr/local/bin/$NAME
 INIT_PATH=/etc/init.d/$NAME
 DEFAULTS_PATH=/etc/default/$NAME
 MANAGER_PATH=/usr/local/sbin/raspi-media-player-service
+DIAGNOSE_PATH=/usr/local/sbin/raspi-media-player-diagnose
+SOAK_PATH=/usr/local/sbin/raspi-media-player-soak
 DATA_DIR=/var/lib/$NAME
 LOG_PATH=/var/log/$NAME.log
 
@@ -26,12 +28,16 @@ binary_asset=$asset_dir/raspi-media-player-linux-arm64
 init_asset=$asset_dir/raspi-media-player.init
 defaults_asset=$asset_dir/raspi-media-player.default
 manager_asset=$asset_dir/service-manager.sh
+diagnose_asset=$asset_dir/diagnose.sh
+soak_asset=$asset_dir/soak.sh
 
 install_assets() {
     [ -f "$binary_asset" ] || { echo "Missing binary: $binary_asset" >&2; exit 1; }
     [ -f "$init_asset" ] || { echo "Missing init script: $init_asset" >&2; exit 1; }
     [ -f "$defaults_asset" ] || { echo "Missing defaults file: $defaults_asset" >&2; exit 1; }
 	[ -f "$manager_asset" ] || { echo "Missing service manager: $manager_asset" >&2; exit 1; }
+	[ -f "$diagnose_asset" ] || { echo "Missing diagnostics script: $diagnose_asset" >&2; exit 1; }
+	[ -f "$soak_asset" ] || { echo "Missing soak script: $soak_asset" >&2; exit 1; }
 
     if ! id "$SERVICE_USER" >/dev/null 2>&1; then
         useradd --system --home-dir "$DATA_DIR" --create-home --shell /usr/sbin/nologin --groups audio "$SERVICE_USER"
@@ -43,6 +49,8 @@ install_assets() {
     install -m 0755 "$binary_asset" "$BINARY_PATH"
     install -m 0755 "$init_asset" "$INIT_PATH"
 	install -m 0755 "$manager_asset" "$MANAGER_PATH"
+	install -m 0755 "$diagnose_asset" "$DIAGNOSE_PATH"
+	install -m 0755 "$soak_asset" "$SOAK_PATH"
     install -d -m 0755 /usr/share/$NAME
     install -m 0644 "$defaults_asset" /usr/share/$NAME/raspi-media-player.default
     if [ ! -e "$DEFAULTS_PATH" ]; then
@@ -94,7 +102,7 @@ case "$action" in
     uninstall)
         service "$NAME" stop 2>/dev/null || true
         update-rc.d -f "$NAME" remove
-		rm -f "$INIT_PATH" "$BINARY_PATH" "$MANAGER_PATH"
+		rm -f "$INIT_PATH" "$BINARY_PATH" "$MANAGER_PATH" "$DIAGNOSE_PATH" "$SOAK_PATH"
         echo "Removed the service and binary. Preserved $DEFAULTS_PATH, $DATA_DIR, $LOG_PATH, and user $SERVICE_USER."
         ;;
     *) usage; exit 2 ;;

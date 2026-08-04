@@ -13,6 +13,8 @@ scp "$BINARY" \
     "$PROJECT_ROOT/deploy/raspi-media-player.init" \
     "$PROJECT_ROOT/deploy/raspi-media-player.default" \
     "$PROJECT_ROOT/scripts/service-manager.sh" \
+	"$PROJECT_ROOT/scripts/diagnose.sh" \
+	"$PROJECT_ROOT/scripts/soak.sh" \
     "$TARGET:$REMOTE_STAGE/"
 
 ssh -t "$TARGET" "\

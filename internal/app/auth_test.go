@@ -181,6 +181,42 @@ func TestRequiredModeRejectsAnonymousQueueMutation(t *testing.T) {
 	}
 }
 
+func TestRequiredModeAuthorizationAuditForEveryMutation(t *testing.T) {
+	var logs bytes.Buffer
+	handler := testHandler(t, &logs, Options{AccessMode: "accounts_required", ArgonMemory: 1024, ArgonIterations: 1})
+	tests := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, "/api/v1/queue/items", `{"url":"https://example.com/audio.mp3"}`},
+		{http.MethodDelete, "/api/v1/queue/items/item", ""},
+		{http.MethodPut, "/api/v1/queue/order", `{"item_ids":[]}`},
+		{http.MethodDelete, "/api/v1/queue", ""},
+		{http.MethodPost, "/api/v1/queue/skip", ""},
+		{http.MethodPost, "/api/v1/playback/pause", ""},
+		{http.MethodPost, "/api/v1/playback/resume", ""},
+		{http.MethodPost, "/api/v1/playback/stop", ""},
+		{http.MethodPost, "/api/v1/playback/seek", `{"position_seconds":1}`},
+		{http.MethodPut, "/api/v1/playback/volume", `{"volume":15}`},
+		{http.MethodPost, "/api/v1/stations", `{"name":"Station","stream_url":"https://example.com/radio"}`},
+		{http.MethodDelete, "/api/v1/stations/id", ""},
+		{http.MethodPut, "/api/v1/stations/household-kfjc/favorite", `{"favorite":true}`},
+		{http.MethodPost, "/api/v1/playlists", `{"name":"List"}`},
+		{http.MethodDelete, "/api/v1/playlists/id", ""},
+		{http.MethodPost, "/api/v1/playlists/id/items", `{"source_url":"https://example.com/audio"}`},
+		{http.MethodDelete, "/api/v1/playlists/id/items/item", ""},
+	}
+	for _, test := range tests {
+		t.Run(test.method+" "+test.path, func(t *testing.T) {
+			response := authRequest(t, handler, test.method, test.path, test.body, nil, "")
+			if response.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401, got %d: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestSessionListingAndRevocation(t *testing.T) {
 	var logs bytes.Buffer
 	handler := testHandler(t, &logs, Options{ArgonMemory: 1024, ArgonIterations: 1, AuthRate: 20, SessionLifetime: time.Hour})
