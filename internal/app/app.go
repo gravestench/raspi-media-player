@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/auth"
+	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
 	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
@@ -40,6 +41,7 @@ type application struct {
 	playback    *playback.Controller
 	library     *library.Store
 	sources     source.Resolver
+	enrichment  *enrichment.Coordinator
 }
 
 type Options struct {
@@ -54,6 +56,7 @@ type Options struct {
 	Playback        *playback.Controller
 	Library         *library.Store
 	Sources         source.Resolver
+	Enrichment      *enrichment.Coordinator
 }
 
 type requestLoggerKey struct{}
@@ -93,6 +96,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 		opts.Playback = provided.Playback
 		opts.Library = provided.Library
 		opts.Sources = provided.Sources
+		opts.Enrichment = provided.Enrichment
 	}
 	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
 		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
@@ -106,7 +110,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	if opts.Sources == nil {
 		opts.Sources = source.DirectRegistry()
 	}
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources, enrichment: opts.Enrichment}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
@@ -142,6 +146,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("DELETE /api/v1/playlists/{id}/items/{itemID}", a.removePlaylistItem)
 	mux.HandleFunc("GET /api/v1/history", a.listHistory)
 	mux.HandleFunc("GET /api/v1/library/search", a.searchLibrary)
+	mux.HandleFunc("GET /api/v1/enrichment", a.getEnrichment)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
 	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(captureRoute(mux))))), nil

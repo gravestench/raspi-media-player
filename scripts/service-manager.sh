@@ -54,11 +54,13 @@ install_assets() {
     install -d -m 0755 /usr/share/$NAME
     install -m 0644 "$defaults_asset" /usr/share/$NAME/raspi-media-player.default
     if [ ! -e "$DEFAULTS_PATH" ]; then
-        install -m 0644 "$defaults_asset" "$DEFAULTS_PATH"
+		install -m 0640 "$defaults_asset" "$DEFAULTS_PATH"
         echo "Installed initial configuration at $DEFAULTS_PATH"
     else
         echo "Preserved existing configuration at $DEFAULTS_PATH"
     fi
+	chown root:root "$DEFAULTS_PATH"
+	chmod 0640 "$DEFAULTS_PATH"
     update-rc.d "$NAME" defaults
 }
 

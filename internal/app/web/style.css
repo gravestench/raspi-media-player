@@ -42,6 +42,7 @@ progress::-webkit-progress-bar { background:#3b4036; } progress::-webkit-progres
 .volume-control { margin-left:auto; display:flex; align-items:center; gap:.65rem; color:#999e92; font-size:.75rem; }
 .volume-control input { accent-color:var(--green); width:110px; }
 .volume-control output { width:2rem; font-variant-numeric:tabular-nums; }
+.artist-panel { display:grid; grid-template-columns:84px 1fr; gap:.8rem; margin:.8rem 0; padding:.75rem; border:1px solid #353930; border-radius:12px; background:#181b16; }.artist-panel img { width:84px; height:84px; object-fit:cover; border-radius:9px; }.artist-panel p { margin:.35rem 0; font-size:.82rem; color:#c3c8bb; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }.artist-genres,.related-artists { color:#9da592; font-size:.75rem; }.artist-attribution { font-size:.7rem; }.history-enrichment { margin:.35rem 0 .7rem; padding:.55rem; border-left:2px solid var(--green); font-size:.8rem; }.history-enrichment img { width:56px; height:56px; object-fit:cover; border-radius:7px; float:left; margin-right:.6rem; }
 .subtle { min-height:1.2em; font-size:.8rem!important; }
 .add-card { margin:clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,3rem); background:var(--green); border-radius:18px; padding:clamp(1.4rem,4vw,2.6rem); display:grid; grid-template-columns:1fr 1.35fr; gap:clamp(1.5rem,5vw,4rem); align-items:end; box-shadow:0 12px 35px #58652c20; }
 .add-card p { margin:.5rem 0 0; color:#45502a; }

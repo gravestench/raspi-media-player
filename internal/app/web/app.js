@@ -1,4 +1,4 @@
-const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [] };
+const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '' };
 const $ = selector => document.querySelector(selector);
 
 function cookie(name) {
@@ -30,7 +30,8 @@ function render(snapshot) {
   state.snapshot = snapshot;
   const playback = snapshot.playback || {};
   const current = snapshot.items.find(item => item.id === playback.current_item_id) || snapshot.items.find(item => item.status === 'current');
-  $('#now-playing-heading').textContent = playback.title || (current ? sourceLabel(current.source.url) : 'Nothing playing');
+  const displayTitle = playback.title || (current ? sourceLabel(current.source.url) : 'Nothing playing');
+  $('#now-playing-heading').textContent = displayTitle;
   $('#now-source').textContent = current ? `${current.source.kind === 'direct' ? 'Stream' : current.source.kind} · ${current.source.url}` : 'Add a radio stream or audio URL to get started.';
   $('#position').textContent = formatTime(playback.position_seconds);
   $('#duration').textContent = playback.duration_seconds > 0 ? formatTime(playback.duration_seconds) : 'Live';
@@ -43,6 +44,22 @@ function render(snapshot) {
   $('#resume-button').disabled = !hasCurrent || (!playback.paused && playback.status !== 'stopped');
   $('#skip-button').disabled = !hasCurrent;
   renderQueue(snapshot.items);
+  if (playback.title && playback.title !== state.enrichmentTitle) { state.enrichmentTitle = playback.title; loadEnrichment(playback.title, renderNowEnrichment); }
+  if (!playback.title) { state.enrichmentTitle = ''; $('#artist-panel').hidden = true; }
+}
+
+async function loadEnrichment(title, renderer, attempt = 0) {
+  try { const body = await api(`/api/v1/enrichment?title=${encodeURIComponent(title)}`); renderer(body.enrichment || {}); if (body.enrichment?.status === 'pending' && attempt < 4) setTimeout(() => loadEnrichment(title, renderer, attempt + 1), 750); }
+  catch (error) { if (attempt === 0) console.debug('Artist metadata unavailable', error.message); }
+}
+
+function renderNowEnrichment(value) {
+  const panel = $('#artist-panel'); if (value.status !== 'ready') { panel.hidden = true; return; }
+  panel.hidden = false; $('#artist-name').textContent = value.hint?.artist || '';
+  $('#artist-genres').textContent = (value.genres || []).join(' · '); $('#artist-bio').textContent = value.biography || '';
+  $('#related-artists').textContent = value.related_artists?.length ? `Related: ${value.related_artists.map(item => item.name).join(', ')}` : '';
+  const image = $('#artist-image'); image.hidden = !value.image?.url; if (value.image?.url) { image.src = value.image.url; image.alt = `${value.hint?.artist || 'Artist'} photo`; }
+  const attribution = $('#artist-attribution'); attribution.textContent = value.image?.attribution || (value.provider ? `Metadata via ${value.provider}` : ''); attribution.href = value.image?.source_url || value.artist_url || '#';
 }
 
 function sourceLabel(url) {
@@ -129,9 +146,11 @@ function renderLibrary() {
 
 function renderHistory(history) {
   const list = $('#history-list'); list.replaceChildren();
-  history.slice(0, 20).forEach(item => { const row = document.createElement('li'); const title = document.createElement('strong'); title.textContent = item.title || sourceLabel(item.source_url); row.append(title, ` · ${item.outcome}`); list.append(row); });
+  history.slice(0, 20).forEach(item => { const row = document.createElement('li'); const title = document.createElement('strong'); const display = item.title || sourceLabel(item.source_url); title.textContent = display; row.append(title, ` · ${item.outcome}`); if (item.title) { const button = actionButton('Artist info', `Show artist information for ${display}`, () => { button.disabled = true; loadEnrichment(item.title, value => renderHistoryEnrichment(row, value)); }); button.classList.add('history-info-button'); row.append(' ', button); } list.append(row); });
   if (!history.length) { const row = document.createElement('li'); row.textContent = 'Nothing has played yet.'; list.append(row); }
 }
+
+function renderHistoryEnrichment(row, value) { let panel = row.querySelector('.history-enrichment'); if (value.status !== 'ready') return; if (!panel) { panel = document.createElement('div'); panel.className = 'history-enrichment'; row.append(panel); } panel.replaceChildren(); if (value.image?.url) { const image = document.createElement('img'); image.src = value.image.url; image.alt = `${value.hint?.artist || 'Artist'} photo`; panel.append(image); } const strong = document.createElement('strong'); strong.textContent = value.hint?.artist || ''; const text = document.createElement('span'); text.textContent = [value.genres?.join(' · '), value.related_artists?.length ? `Related: ${value.related_artists.map(item => item.name).join(', ')}` : ''].filter(Boolean).join(' — '); panel.append(strong, document.createElement('br'), text); }
 
 async function queueStation(station) { try { render(await api('/api/v1/queue/items', { method:'POST', body:JSON.stringify({ url:station.stream_url, display_name:state.session ? '' : 'Station shelf' }) })); showToast(`${station.name} added to the queue.`); } catch (error) { showToast(error.message); } }
 async function toggleFavorite(station) { try { await api(`/api/v1/stations/${station.id}/favorite`, { method:'PUT', body:JSON.stringify({ favorite:!station.favorite }) }); await loadLibrary(); } catch (error) { showToast(error.message); } }

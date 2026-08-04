@@ -17,6 +17,7 @@ DEFAULTS=/etc/default/$NAME
 USER=raspi-media-player
 
 [ -r "$DEFAULTS" ] && . "$DEFAULTS"
+[ -z "${RASPI_MEDIA_PLAYER_LASTFM_API_KEY:-}" ] || export RASPI_MEDIA_PLAYER_LASTFM_API_KEY
 [ -x "$DAEMON" ] || exit 0
 
 . /lib/lsb/init-functions

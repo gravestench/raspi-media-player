@@ -26,6 +26,7 @@ type Config struct {
 	CacheSeconds  int
 	PlayerRetries int
 	HistoryDays   int
+	LastFMAPIKey  string
 }
 
 func Default() Config {
@@ -50,6 +51,7 @@ func Default() Config {
 		CacheSeconds:  envInt("RASPI_MEDIA_PLAYER_CACHE_SECONDS", 20),
 		PlayerRetries: envNonnegativeInt("RASPI_MEDIA_PLAYER_PLAYER_RETRIES", 1),
 		HistoryDays:   envNonnegativeInt("RASPI_MEDIA_PLAYER_HISTORY_DAYS", 90),
+		LastFMAPIKey:  env("RASPI_MEDIA_PLAYER_LASTFM_API_KEY", ""),
 	}
 }
 

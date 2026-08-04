@@ -346,9 +346,9 @@ without delaying or destabilizing playback.
 - [x] Add a provider-neutral enrichment model and persistent cache schema for
       artist images, biographies, genres/tags, related artists, attribution,
       lookup status, and expiry.
-- [ ] Add a background enrichment coordinator with cancellation, bounded
+- [x] Add a background enrichment coordinator with cancellation, bounded
       timeouts, retry/backoff, negative caching, and no impact on playback.
-- [ ] Add optional Last.fm configuration and provider support for artist info,
+- [x] Add optional Last.fm configuration and provider support for artist info,
       top tags, and similar artists without storing or logging the API key.
 - [ ] Add keyless MusicBrainz identity/relationship fallback with the required
       descriptive User-Agent and an average maximum of one request per second.
@@ -356,11 +356,11 @@ without delaying or destabilizing playback.
       attribution fields; never hotlink an image without retaining its source.
 - [ ] Reject placeholder, tiny, unrelated, unsafe-scheme, or uncredited images
       and prefer cached local thumbnails where licensing permits.
-- [ ] Associate enrichment records with current playback and immutable history
+- [x] Associate enrichment records with current playback and immutable history
       entries without changing queue ownership or deletion semantics.
-- [ ] Extend now-playing and history APIs with enrichment state, artist details,
+- [x] Extend now-playing and history APIs with enrichment state, artist details,
       genres, related artists, image attribution, and graceful unavailable states.
-- [ ] Display artist imagery and expandable discovery details prominently in
+- [x] Display artist imagery and expandable discovery details prominently in
       now-playing and accessibly from each recently played row on desktop and
       phone layouts.
 - [ ] Allow an operator to disable external metadata entirely and configure

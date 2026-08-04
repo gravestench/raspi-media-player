@@ -27,6 +27,10 @@
         <div class="track-details">
           <h1 id="now-playing-heading">Nothing playing</h1>
           <p id="now-source">Add a radio stream or audio URL to get started.</p>
+          <aside id="artist-panel" class="artist-panel" hidden>
+            <img id="artist-image" alt="" hidden>
+            <div><strong id="artist-name"></strong><div id="artist-genres" class="artist-genres"></div><p id="artist-bio"></p><div id="related-artists" class="related-artists"></div><a id="artist-attribution" target="_blank" rel="noopener noreferrer"></a></div>
+          </aside>
           <div class="progress-wrap">
             <progress id="playback-progress" max="1" value="0" aria-label="Playback progress"></progress>
             <div class="times"><span id="position">0:00</span><span id="duration">Live</span></div>

@@ -20,3 +20,6 @@ RASPI_MEDIA_PLAYER_AUDIO_DEVICE=alsa/plughw:CARD=Headphones,DEV=0
 RASPI_MEDIA_PLAYER_CACHE_SECONDS=20
 RASPI_MEDIA_PLAYER_PLAYER_RETRIES=1
 RASPI_MEDIA_PLAYER_HISTORY_DAYS=90
+# Optional read-only artist metadata enrichment. Keep the real value only in
+# /etc/default/raspi-media-player; deployment upgrades preserve that file.
+RASPI_MEDIA_PLAYER_LASTFM_API_KEY=

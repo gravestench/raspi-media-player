@@ -90,3 +90,14 @@ func TestStaticIndex(t *testing.T) {
 		t.Fatal("index page content missing")
 	}
 }
+
+func TestEnrichmentEndpointDegradesWhenProviderDisabled(t *testing.T) {
+	var logs bytes.Buffer
+	handler := testHandler(t, &logs)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/enrichment?title=Artist%20-%20Song", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"status":"disabled"`)) || !bytes.Contains(response.Body.Bytes(), []byte(`"artist":"Artist"`)) {
+		t.Fatalf("disabled enrichment response: %d %s", response.Code, response.Body.String())
+	}
+}

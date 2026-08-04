@@ -29,17 +29,20 @@ type Controller struct {
 	history       HistoryRecorder
 	desiredVolume int
 	sources       source.Resolver
+	metadata      MetadataObserver
 }
 
 type HistoryRecorder interface {
 	RecordStarted(context.Context, string, string, string, string) (string, error)
 	RecordFinished(context.Context, string, string, string, error) error
 }
+type MetadataObserver interface{ ObserveTitle(context.Context, string) }
 
 type Options struct {
 	RetryLimit int
 	History    HistoryRecorder
 	Sources    source.Resolver
+	Metadata   MetadataObserver
 }
 
 func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, options ...Options) *Controller {
@@ -55,7 +58,11 @@ func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, optio
 	if len(options) > 0 && options[0].Sources != nil {
 		sources = options[0].Sources
 	}
-	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int), history: history, sources: sources}
+	var metadata MetadataObserver
+	if len(options) > 0 {
+		metadata = options[0].Metadata
+	}
+	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int), history: history, sources: sources, metadata: metadata}
 }
 
 func (c *Controller) Start(parent context.Context) error {
@@ -198,6 +205,9 @@ func (c *Controller) handleEvent(event player.Event) {
 		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: desiredVolume, Error: event.State.Error}
 		if err := c.queue.UpdatePlayback(c.ctx, state); err != nil {
 			c.logger.Error("persist playback state failed", "error", err)
+		}
+		if c.metadata != nil && state.Title != "" {
+			c.metadata.ObserveTitle(c.ctx, state.Title)
 		}
 	case player.EventEnded:
 		if loadedID != "" {

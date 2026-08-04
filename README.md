@@ -69,6 +69,9 @@ history are documented in [docs/library.md](docs/library.md).
 The pluggable source boundary and the current YouTube feasibility decision are
 documented in [docs/sources.md](docs/sources.md).
 
+Artist photos, genres, biographies, related artists, and Last.fm key setup are
+documented in [docs/enrichment.md](docs/enrichment.md).
+
 ## Daemon deployment
 
 The init.d service assets and Raspberry Pi deployment helper live in `deploy/`
