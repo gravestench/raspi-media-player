@@ -82,8 +82,11 @@
             <button id="skip-button" class="round-control" type="button" aria-label="Skip current item">›|</button>
             <label class="volume-control"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="100" aria-label="Volume"><output id="volume-output">100</output></label>
           </div>
-          <button id="autoqueue-toggle" class="autoqueue-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">✦</span> Auto-queue off</button>
-          <p id="autoqueue-status" class="autoqueue-status subtle" role="status" hidden></p>
+          <div id="autoqueue-panel" class="autoqueue-panel" hidden>
+            <div class="autoqueue-heading"><button id="autoqueue-toggle" class="autoqueue-toggle" type="button" aria-pressed="false"><span aria-hidden="true">✦</span> Auto-queue off</button><label>Recommendation mix<select id="autoqueue-mode"><option value="active_users">Active listeners · fair rotation</option><option value="specific_seeds">Specific artists or genres</option><option value="related_last">Related to last queued item</option></select></label></div>
+            <form id="autoqueue-seeds" class="autoqueue-seeds" hidden><label>Artists<input id="autoqueue-artists" type="text" maxlength="1000" placeholder="Björk, Talking Heads"></label><label>Genres<input id="autoqueue-genres" type="text" maxlength="1000" placeholder="post-punk, ambient"></label><button class="button" type="submit">Save mix</button></form>
+            <p id="autoqueue-status" class="autoqueue-status subtle" role="status"></p>
+          </div>
           <p id="vote-status" class="vote-status" role="status" hidden></p>
           <p id="playback-state" class="subtle" role="status"></p>
         </div>

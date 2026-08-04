@@ -20,6 +20,8 @@ func TestValidateAutoQueueSettings(t *testing.T) {
 		{"auto_queue_depth", "21", false},
 		{"auto_queue_active_seconds", "30", true},
 		{"auto_queue_active_seconds", "29", false},
+		{"auto_queue_mode", "related_last", true},
+		{"auto_queue_mode", "anything", false},
 	} {
 		err := validateSetting(test.key, test.value)
 		if (err == nil) != test.valid {

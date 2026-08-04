@@ -149,8 +149,14 @@ async function control(path, options = {}) { try { render(await api(path, { meth
 async function refresh() { try { render(await api('/api/v1/queue')); } catch (error) { showToast(error.message); } }
 
 async function loadAutoQueueStatus() {
-  try { const value = await api('/api/v1/autoqueue'); const button = $('#autoqueue-toggle'); const status = $('#autoqueue-status'); button.hidden = !value.available; status.hidden = !value.available; button.dataset.enabled = String(Boolean(value.enabled)); button.setAttribute('aria-pressed', String(Boolean(value.enabled))); button.innerHTML = `<span aria-hidden="true">✦</span> Auto-queue ${value.enabled ? 'on' : 'off'}`; status.textContent = value.enabled ? `Keeping ${value.depth || 3} track${String(value.depth) === '1' ? '' : 's'} ahead from active listeners’ tastes.` : 'Turn on weighted recommendations for active signed-in listeners.'; }
-  catch { $('#autoqueue-toggle').hidden = true; $('#autoqueue-status').hidden = true; }
+  try {
+    const value = await api('/api/v1/autoqueue'); const panel = $('#autoqueue-panel'); const button = $('#autoqueue-toggle'); const mode = $('#autoqueue-mode'); const seeds = $('#autoqueue-seeds');
+    panel.hidden = !value.available; if (!value.available) return;
+    button.dataset.enabled = String(Boolean(value.enabled)); button.setAttribute('aria-pressed', String(Boolean(value.enabled))); button.innerHTML = `<span aria-hidden="true">✦</span> Auto-queue ${value.enabled ? 'on' : 'off'}`;
+    mode.value = value.mode || 'active_users'; seeds.hidden = mode.value !== 'specific_seeds'; $('#autoqueue-artists').value = value.artists || ''; $('#autoqueue-genres').value = value.genres || '';
+    const descriptions = { active_users:'fairly rotating through active listeners', specific_seeds:'your selected artists and genres', related_last:'artists and genres related to the last queued item' };
+    $('#autoqueue-status').textContent = value.enabled ? `Keeping ${value.depth || 3} track${String(value.depth) === '1' ? '' : 's'} ahead using ${descriptions[mode.value]}.` : `Ready to fill the queue using ${descriptions[mode.value]}.`;
+  } catch { $('#autoqueue-panel').hidden = true; }
 }
 
 function connectEvents() {
@@ -228,6 +234,8 @@ $('#clear-button').addEventListener('click', async () => { try { render(await ap
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });
 $('#volume').addEventListener('change', async event => { try { render(await api('/api/v1/playback/volume', { method: 'PUT', body: JSON.stringify({ volume: Number(event.target.value) }) })); } catch (error) { showToast(error.message); } });
 $('#autoqueue-toggle').addEventListener('click', async event => { const button = event.currentTarget; button.disabled = true; try { const enabled = button.dataset.enabled !== 'true'; await api('/api/v1/autoqueue', { method:'PUT', body:JSON.stringify({ enabled }) }); await loadAutoQueueStatus(); showToast(`Auto-queue turned ${enabled ? 'on' : 'off'}.`); } catch (error) { showToast(error.message); } finally { button.disabled = false; } });
+$('#autoqueue-mode').addEventListener('change', async event => { try { await api('/api/v1/autoqueue', { method:'PUT', body:JSON.stringify({ mode:event.target.value }) }); await loadAutoQueueStatus(); showToast('Auto-queue strategy updated.'); } catch (error) { showToast(error.message); await loadAutoQueueStatus(); } });
+$('#autoqueue-seeds').addEventListener('submit', async event => { event.preventDefault(); const button = event.submitter; button.disabled = true; try { await api('/api/v1/autoqueue', { method:'PUT', body:JSON.stringify({ artists:$('#autoqueue-artists').value, genres:$('#autoqueue-genres').value }) }); await loadAutoQueueStatus(); showToast('Auto-queue mix saved.'); } catch (error) { showToast(error.message); } finally { button.disabled = false; } });
 
 $('#account-button').addEventListener('click', async () => { if (state.session) { try { await api('/api/v1/auth/logout', { method: 'POST' }); state.session = null; renderIdentity(); await loadLibrary(); showToast('Logged out. Anonymous queueing is still available.'); } catch (error) { showToast(error.message); } return; } resetAuth(); $('#auth-dialog').showModal(); $('#login-username').focus(); });
 $('#auth-close').addEventListener('click', () => $('#auth-dialog').close());

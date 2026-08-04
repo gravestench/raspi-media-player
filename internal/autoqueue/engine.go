@@ -88,13 +88,18 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 	if needed <= 0 {
 		return 0, nil
 	}
-	preferences, err := e.preferences(ctx, time.Now().Add(-time.Duration(activeSeconds)*time.Second))
-	if err != nil || len(preferences) == 0 {
-		return 0, err
-	}
+	mode := e.stringSetting(ctx, "auto_queue_mode", "active_users")
+	activeSince := time.Now().Add(-time.Duration(activeSeconds) * time.Second)
 	limit := e.intSetting(ctx, "queue_limit", e.queueLimit, 1, 10000)
 	added := 0
 	for attempts := 0; added < needed && attempts < needed*6; attempts++ {
+		preferences, selectedUser, err := e.preferencesForMode(ctx, mode, activeSince, snapshot)
+		if err != nil {
+			return added, err
+		}
+		if len(preferences) == 0 {
+			break
+		}
 		preference := e.pick(preferences)
 		query := preference.Name
 		canonicalTitle := ""
@@ -133,6 +138,11 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 		_, _, addErr := e.queue.AddSourceTitled(ctx, "youtube", result.URL, canonicalTitle, "Auto-queue", nil, limit)
 		if addErr == nil {
 			added++
+			if selectedUser != "" {
+				if err := e.markUserSelected(ctx, selectedUser); err != nil {
+					return added, err
+				}
+			}
 			continue
 		}
 		if !errors.Is(addErr, queuepkg.ErrDuplicate) && !errors.Is(addErr, queuepkg.ErrFull) {
@@ -145,62 +155,134 @@ func (e *Engine) Refill(ctx context.Context) (int, error) {
 	return added, nil
 }
 
-func (e *Engine) preferences(ctx context.Context, activeSince time.Time) ([]preference, error) {
-	rows, err := e.db.QueryContext(ctx, `
-		SELECT h.submitter_user_id, h.title
-		FROM playback_history h
-		JOIN (
-			SELECT DISTINCT user_id FROM sessions
-			WHERE revoked_at IS NULL AND datetime(expires_at) > CURRENT_TIMESTAMP AND datetime(last_seen_at) >= datetime(?)
-		) active ON active.user_id = h.submitter_user_id
-		WHERE h.title <> ''
-		ORDER BY h.started_at DESC
-		LIMIT 1000`, activeSince.UTC().Format(time.RFC3339Nano))
+func (e *Engine) preferencesForMode(ctx context.Context, mode string, activeSince time.Time, snapshot queuepkg.Snapshot) ([]preference, string, error) {
+	switch mode {
+	case "specific_seeds":
+		return seedPreferences(e.stringSetting(ctx, "auto_queue_artists", ""), e.stringSetting(ctx, "auto_queue_genres", "")), "", nil
+	case "related_last":
+		values, err := e.relatedPreferences(ctx, snapshot)
+		return values, "", err
+	default:
+		users, err := e.activeUsers(ctx, activeSince)
+		if err != nil || len(users) == 0 {
+			return nil, "", err
+		}
+		// Users without usable history still receive a turn, then the next refill
+		// attempt advances to another listener instead of letting them block the queue.
+		for range users {
+			userID, err := e.fairUser(ctx, users)
+			if err != nil {
+				return nil, "", err
+			}
+			values, err := e.userPreferences(ctx, userID)
+			if err != nil {
+				return nil, "", err
+			}
+			if len(values) > 0 {
+				return values, userID, nil
+			}
+			if err := e.markUserSelected(ctx, userID); err != nil {
+				return nil, "", err
+			}
+		}
+		return nil, "", nil
+	}
+}
+
+func (e *Engine) activeUsers(ctx context.Context, activeSince time.Time) ([]string, error) {
+	rows, err := e.db.QueryContext(ctx, `SELECT DISTINCT user_id FROM sessions WHERE revoked_at IS NULL AND datetime(expires_at) > CURRENT_TIMESTAMP AND datetime(last_seen_at) >= datetime(?)`, activeSince.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	type play struct{ userID, artist string }
-	plays := make([]play, 0, 200)
+	var users []string
 	for rows.Next() {
-		var userID, title string
-		if err := rows.Scan(&userID, &title); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		users = append(users, id)
+	}
+	return users, rows.Err()
+}
+
+func (e *Engine) fairUser(ctx context.Context, users []string) (string, error) {
+	turns := map[string]string{}
+	rows, err := e.db.QueryContext(ctx, `SELECT user_id, last_selected_at FROM auto_queue_user_turns`)
+	if err != nil {
+		return "", err
+	}
+	for rows.Next() {
+		var id, at string
+		if err := rows.Scan(&id, &at); err != nil {
+			rows.Close()
+			return "", err
+		}
+		turns[id] = at
+	}
+	if err := rows.Close(); err != nil {
+		return "", err
+	}
+	oldest := ""
+	var candidates []string
+	for _, id := range users {
+		at := turns[id]
+		if len(candidates) == 0 || at < oldest {
+			oldest = at
+			candidates = []string{id}
+		} else if at == oldest {
+			candidates = append(candidates, id)
+		}
+	}
+	return candidates[e.randomIndex(len(candidates))], nil
+}
+
+func (e *Engine) markUserSelected(ctx context.Context, userID string) error {
+	_, err := e.db.ExecContext(ctx, `INSERT INTO auto_queue_user_turns (user_id, last_selected_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET last_selected_at = excluded.last_selected_at`, userID, time.Now().UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+func (e *Engine) userPreferences(ctx context.Context, userID string) ([]preference, error) {
+	rows, err := e.db.QueryContext(ctx, `
+		SELECT title FROM playback_history WHERE submitter_user_id = ? AND title <> '' ORDER BY started_at DESC LIMIT 500`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	artists := make([]string, 0, 200)
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
 			return nil, err
 		}
 		artist := strings.TrimSpace(enrichment.ParseTitle(title).Artist)
 		if artist != "" {
-			plays = append(plays, play{userID: userID, artist: artist})
+			artists = append(artists, artist)
 		}
 	}
-	if err := rows.Err(); err != nil || len(plays) == 0 {
+	if err := rows.Err(); err != nil || len(artists) == 0 {
 		return nil, err
 	}
 	genresByArtist, err := e.genresByArtist(ctx)
 	if err != nil {
 		return nil, err
 	}
-	artistCounts := map[string]map[string]int{}
-	genreCounts := map[string]map[string]int{}
+	artistCounts := map[string]int{}
+	genreCounts := map[string]int{}
 	labels := map[string]string{}
-	for _, item := range plays {
-		if artistCounts[item.userID] == nil {
-			artistCounts[item.userID] = map[string]int{}
-			genreCounts[item.userID] = map[string]int{}
-		}
-		key := strings.ToLower(item.artist)
-		labels[key] = item.artist
-		artistCounts[item.userID][key]++
+	for _, artist := range artists {
+		key := strings.ToLower(artist)
+		labels[key] = artist
+		artistCounts[key]++
 		for _, genre := range genresByArtist[key] {
 			genreKey := strings.ToLower(genre)
 			labels["genre:"+genreKey] = genre
-			genreCounts[item.userID][genreKey]++
+			genreCounts[genreKey]++
 		}
 	}
 	merged := map[string]int{}
-	for userID, counts := range artistCounts {
-		mergeNormalized(merged, "artist:", counts)
-		mergeNormalized(merged, "genre:", genreCounts[userID])
-	}
+	mergeNormalized(merged, "artist:", artistCounts)
+	mergeNormalized(merged, "genre:", genreCounts)
 	result := make([]preference, 0, len(merged))
 	for key, weight := range merged {
 		kind, nameKey, _ := strings.Cut(key, ":")
@@ -215,6 +297,67 @@ func (e *Engine) preferences(ctx context.Context, activeSince time.Time) ([]pref
 		result = result[:40]
 	}
 	return result, nil
+}
+
+func seedPreferences(artists, genres string) []preference {
+	var result []preference
+	for _, entry := range splitSeeds(artists) {
+		result = append(result, preference{Kind: "artist", Name: entry, Weight: 10})
+	}
+	for _, entry := range splitSeeds(genres) {
+		result = append(result, preference{Kind: "genre", Name: entry, Weight: 10})
+	}
+	return result
+}
+
+func splitSeeds(value string) []string {
+	seen := map[string]bool{}
+	var result []string
+	for _, part := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == '\n' }) {
+		part = strings.TrimSpace(part)
+		key := strings.ToLower(part)
+		if part != "" && !seen[key] {
+			seen[key] = true
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+func (e *Engine) relatedPreferences(ctx context.Context, snapshot queuepkg.Snapshot) ([]preference, error) {
+	if len(snapshot.Items) == 0 {
+		return nil, nil
+	}
+	hint := enrichment.ParseTitle(snapshot.Items[len(snapshot.Items)-1].Title)
+	if hint.Artist == "" {
+		return nil, nil
+	}
+	var genresJSON, relatedJSON string
+	err := e.db.QueryRowContext(ctx, `SELECT genres_json, related_artists_json FROM media_enrichments WHERE lower(artist) = lower(?) AND status = 'ready' ORDER BY updated_at DESC LIMIT 1`, hint.Artist).Scan(&genresJSON, &relatedJSON)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var genres []string
+	var related []struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal([]byte(genresJSON), &genres)
+	_ = json.Unmarshal([]byte(relatedJSON), &related)
+	var values []preference
+	for _, name := range genres {
+		if strings.TrimSpace(name) != "" {
+			values = append(values, preference{Kind: "genre", Name: name, Weight: 10})
+		}
+	}
+	for _, artist := range related {
+		if strings.TrimSpace(artist.Name) != "" {
+			values = append(values, preference{Kind: "artist", Name: artist.Name, Weight: 10})
+		}
+	}
+	return values, nil
 }
 
 func (e *Engine) genresByArtist(ctx context.Context) (map[string][]string, error) {
@@ -283,6 +426,14 @@ func (e *Engine) boolSetting(ctx context.Context, key string, fallback bool) boo
 		return fallback
 	}
 	return parsed
+}
+
+func (e *Engine) stringSetting(ctx context.Context, key, fallback string) string {
+	value, err := e.settings.Value(ctx, key)
+	if err != nil || strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(value)
 }
 
 func (e *Engine) intSetting(ctx context.Context, key string, fallback, minimum, maximum int) int {

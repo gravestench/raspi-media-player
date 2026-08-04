@@ -18,9 +18,9 @@ func TestOpenAppliesMigrationsIdempotently(t *testing.T) {
 			db.Close()
 			t.Fatal(err)
 		}
-		if count != 8 {
+		if count != 9 {
 			db.Close()
-			t.Fatalf("migration count: got %d want 8", count)
+			t.Fatalf("migration count: got %d want 9", count)
 		}
 		if err := db.Close(); err != nil {
 			t.Fatal(err)

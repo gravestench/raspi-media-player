@@ -244,6 +244,14 @@ func validateSetting(key, value string) error {
 		if value != "mpv" && value != "fake" {
 			return errors.New("invalid player backend")
 		}
+	case "auto_queue_mode":
+		if value != "active_users" && value != "specific_seeds" && value != "related_last" {
+			return errors.New("invalid auto-queue strategy")
+		}
+	case "auto_queue_artists", "auto_queue_genres":
+		if len(value) > 1000 {
+			return errors.New("auto-queue seeds must be 1000 characters or fewer")
+		}
 	case "metadata_enabled", "vote_enabled", "youtube_search_enabled", "secure_cookie", "player_enabled", "auto_queue_enabled":
 		if value != "true" && value != "false" {
 			return errors.New("value must be true or false")

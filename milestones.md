@@ -584,6 +584,9 @@ milestone is revised:
   track-level stream history, and the responsive SPA redesign.
 - **Milestone 18:** Active-listener auto-queue, weighted artist/genre selection,
   configurable queue depth, and unified search/URL entry.
+- **Milestone 19:** Three-mode auto-queue strategy controls: persistent fair
+  rotation across active listeners, explicit artist/genre seeds, and cached
+  related-artist/genre continuation from the last queued item.
 - **Current milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
