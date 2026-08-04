@@ -63,7 +63,11 @@ install_assets() {
 	chmod 0640 "$DEFAULTS_PATH"
 	if ! grep -q '^RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=..' "$DEFAULTS_PATH"; then
 		settings_key=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-		sed -i "s|^RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=.*|RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=$settings_key|" "$DEFAULTS_PATH"
+		if grep -q '^RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=' "$DEFAULTS_PATH"; then
+			sed -i "s|^RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=.*|RASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=$settings_key|" "$DEFAULTS_PATH"
+		else
+			printf '\nRASPI_MEDIA_PLAYER_SETTINGS_SECRET_KEY=%s\n' "$settings_key" >>"$DEFAULTS_PATH"
+		fi
 	fi
     update-rc.d "$NAME" defaults
 }
