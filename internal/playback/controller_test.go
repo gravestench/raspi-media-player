@@ -124,7 +124,8 @@ func TestControllerControlsAndStopResume(t *testing.T) {
 	})
 	fake.Emit(player.Event{Type: player.EventState, State: player.State{Status: "unavailable", Error: "mpv crashed"}})
 	waitFor(t, "restart volume restore", func() bool {
-		return len(fake.URLs()) >= 2 && fake.Snapshot().Volume == 37
+		snapshot, _ := store.Snapshot(ctx)
+		return len(fake.URLs()) >= 2 && fake.Snapshot().Volume == 37 && snapshot.Playback.Volume == 37
 	})
 	loadedBeforeStop := len(fake.URLs())
 	if err := controller.Stop(ctx); err != nil {

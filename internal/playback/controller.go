@@ -156,6 +156,9 @@ func (c *Controller) handleEvent(event player.Event) {
 			}
 			return
 		}
+		if loadedID == "" {
+			return
+		}
 		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: event.State.Volume, Error: event.State.Error}
 		if err := c.queue.UpdatePlayback(c.ctx, state); err != nil {
 			c.logger.Error("persist playback state failed", "error", err)
