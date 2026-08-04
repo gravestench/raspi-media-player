@@ -1,4 +1,4 @@
-const state = { snapshot: null, session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '', enrichmentGeneration: 0, artworkURL: '', setupStep: 0 };
+const state = { snapshot: null, queueSignature: '', session: null, pendingSignup: null, source: null, stations: [], playlists: [], enrichmentTitle: '', enrichmentGeneration: 0, artworkURL: '', setupStep: 0 };
 const $ = selector => document.querySelector(selector);
 
 function cookie(name) {
@@ -113,6 +113,9 @@ function sourceLabel(url) {
 }
 
 function renderQueue(items) {
+  const signature = JSON.stringify(items.map(item => [item.id, item.title, item.source.kind, item.source.url, item.submitter.kind, item.submitter.username, item.submitter.display_name, item.position, item.status, item.error]));
+  if (signature === state.queueSignature) return;
+  state.queueSignature = signature;
   const list = $('#queue-list'); list.replaceChildren(); $('#queue-empty').hidden = items.length > 0; $('#clear-button').hidden = items.length === 0;
   items.forEach((item, index) => {
     const row = document.createElement('li'); row.className = `queue-item ${item.status}`;
