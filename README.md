@@ -51,3 +51,18 @@ response size, and remote address.
 Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi
 validation are scheduled in Milestone 7; do not treat the current script as a
 finished production installer yet.
+
+The current integration target is a 64-bit Debian 12 Raspberry Pi. Build and
+deploy to it with:
+
+```sh
+make build-pi
+make deploy-pi
+```
+
+`scripts/deploy-pi.sh` defaults to `dknuth@192.168.1.25`; override it with the
+`TARGET` environment variable. SSH and sudo authentication remain interactive.
+No password is read from a project file or stored by the script. The deployed
+service listens on port 8080, stores its database under
+`/var/lib/raspi-media-player`, and writes structured logs to
+`/var/log/raspi-media-player.log`.

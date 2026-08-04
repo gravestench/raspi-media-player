@@ -231,20 +231,20 @@ Acceptance criteria:
 
 Goal: install and operate the application as a conventional Raspberry Pi daemon.
 
-- [ ] Provide a POSIX-compatible `/etc/init.d/raspi-media-player` script with
+- [x] Provide a POSIX-compatible `/etc/init.d/raspi-media-player` script with
       start, stop, restart, status, and reload where supported.
-- [ ] Include the correct LSB init metadata and dependency ordering.
-- [ ] Run under a dedicated unprivileged user and group.
-- [ ] Define paths for the binary, configuration, SQLite data, PID/runtime files,
+- [x] Include the correct LSB init metadata and dependency ordering.
+- [x] Run under a dedicated unprivileged user and group.
+- [x] Define paths for the binary, configuration, SQLite data, PID/runtime files,
       and logs without relying on an interactive home directory.
 - [ ] Provide an environment/configuration file containing access mode, bind
       address, database path, player settings, log format/level, and limits.
 - [ ] Ensure startup waits for required local facilities and handles networking
       becoming available later.
-- [ ] Ensure stop sends `SIGTERM`, waits a bounded period, and prevents orphaned
+- [x] Ensure stop sends `SIGTERM`, waits a bounded period, and prevents orphaned
       player processes.
 - [ ] Add install, upgrade, uninstall, and configuration-check scripts.
-- [ ] Preserve the database and local configuration during upgrades/uninstall by
+- [x] Preserve the database and local configuration during upgrades/uninstall by
       default.
 - [ ] Add backup and restore documentation for SQLite and configuration.
 - [ ] Document enabling at boot on common Raspberry Pi OS versions.
@@ -356,3 +356,6 @@ milestone is revised:
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
+- **Integration target:** Debian 12 ARM64 Raspberry Pi at `192.168.1.25`; initial
+  API daemon deployment verified on 2026-08-04 without interrupting the existing
+  VLC/KFJC playback process.
