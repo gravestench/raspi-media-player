@@ -214,6 +214,11 @@ func (s *Store) UpdatePlayback(ctx context.Context, state PlaybackState) error {
 	return err
 }
 
+func (s *Store) SetVolume(ctx context.Context, volume int) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE queue_state SET volume = ?, updated_at = CURRENT_TIMESTAMP WHERE singleton = 1`, volume)
+	return err
+}
+
 func (s *Store) FinishCurrent(ctx context.Context, id string, failure error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

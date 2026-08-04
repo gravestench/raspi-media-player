@@ -13,19 +13,20 @@ import (
 )
 
 type Controller struct {
-	logger     *slog.Logger
-	queue      *queuepkg.Store
-	player     player.Player
-	mu         sync.Mutex
-	loadedID   string
-	stopped    bool
-	ctx        context.Context
-	cancel     context.CancelFunc
-	done       chan struct{}
-	retryLimit int
-	retries    map[string]int
-	retryAfter time.Time
-	history    HistoryRecorder
+	logger        *slog.Logger
+	queue         *queuepkg.Store
+	player        player.Player
+	mu            sync.Mutex
+	loadedID      string
+	stopped       bool
+	ctx           context.Context
+	cancel        context.CancelFunc
+	done          chan struct{}
+	retryLimit    int
+	retries       map[string]int
+	retryAfter    time.Time
+	history       HistoryRecorder
+	desiredVolume int
 }
 
 type HistoryRecorder interface {
@@ -92,6 +93,7 @@ func (c *Controller) reconcile() {
 	}
 	c.mu.Lock()
 	loadedID, stopped := c.loadedID, c.stopped
+	c.desiredVolume = snapshot.Playback.Volume
 	c.mu.Unlock()
 	if stopped {
 		return
@@ -177,7 +179,10 @@ func (c *Controller) handleEvent(event player.Event) {
 		if loadedID == "" {
 			return
 		}
-		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: event.State.Volume, Error: event.State.Error}
+		c.mu.Lock()
+		desiredVolume := c.desiredVolume
+		c.mu.Unlock()
+		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: desiredVolume, Error: event.State.Error}
 		if err := c.queue.UpdatePlayback(c.ctx, state); err != nil {
 			c.logger.Error("persist playback state failed", "error", err)
 		}
@@ -267,7 +272,17 @@ func (c *Controller) Seek(ctx context.Context, seconds float64) error {
 	return c.player.Seek(ctx, seconds)
 }
 func (c *Controller) SetVolume(ctx context.Context, volume int) error {
-	return c.player.SetVolume(ctx, volume)
+	c.mu.Lock()
+	previous := c.desiredVolume
+	c.desiredVolume = volume
+	c.mu.Unlock()
+	if err := c.player.SetVolume(ctx, volume); err != nil {
+		c.mu.Lock()
+		c.desiredVolume = previous
+		c.mu.Unlock()
+		return err
+	}
+	return c.queue.SetVolume(ctx, volume)
 }
 func (c *Controller) Close() error {
 	if c.cancel != nil {
