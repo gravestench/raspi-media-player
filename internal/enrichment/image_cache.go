@@ -74,7 +74,7 @@ func (c *ImageCache) Cache(ctx context.Context, key string, imageValue Image) (I
 		return imageValue, err
 	}
 	name := temporary.Name()
-	defer os.Remove(name)
+	defer func() { _ = os.Remove(name) }()
 	if _, err := temporary.Write(data); err != nil {
 		temporary.Close()
 		return imageValue, err

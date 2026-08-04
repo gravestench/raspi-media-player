@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -78,7 +77,7 @@ func (w *streamResponse) Write(value []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
-	return io.WriteString(&w.body, string(value))
+	return w.body.Write(value)
 }
 func (w *streamResponse) Flush()           { w.once.Do(func() { close(w.flushed) }) }
 func (w *streamResponse) contents() string { w.mu.Lock(); defer w.mu.Unlock(); return w.body.String() }

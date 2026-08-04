@@ -1,7 +1,7 @@
 # Regression testing
 
-Run `make check` for Go tests and vetting, and `make test-api` for the complete
-black-box API suite. The latter builds the current server, starts isolated
+Run `make check` for pinned Go linting and tests, and `make test-api` for the
+complete black-box API suite. The latter builds the current server, starts isolated
 instances on loopback with temporary SQLite databases and the fake player, and
 removes every process and temporary file on exit.
 
@@ -16,5 +16,5 @@ mode and persistence servers use `TEST_OPTIONAL_PORT`, `TEST_REQUIRED_PORT`,
 and `TEST_PERSIST_PORT`, defaulting to `18081` through `18083`. Override these
 when another local service owns those ports.
 
-GitHub Actions runs formatting, vet, race-enabled Go tests, and this full API
-suite on pushes and pull requests.
+GitHub Actions runs the pinned `.golangci.yml` policy, formatting, race-enabled
+Go tests, and this full API suite on pushes and pull requests.

@@ -3,10 +3,11 @@ package enrichment
 import (
 	"context"
 	"errors"
-	"github.com/dylanknuth/raspi-media-player/internal/database"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/dylanknuth/raspi-media-player/internal/database"
 )
 
 func TestParseTitle(t *testing.T) {

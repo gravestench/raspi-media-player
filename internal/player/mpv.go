@@ -122,7 +122,8 @@ func (m *MPV) runOnce() error {
 	var err error
 	deadline := time.Now().Add(8 * time.Second)
 	for time.Now().Before(deadline) {
-		conn, err = net.DialTimeout("unix", m.config.SocketPath, 250*time.Millisecond)
+		dialer := net.Dialer{Timeout: 250 * time.Millisecond}
+		conn, err = dialer.DialContext(m.ctx, "unix", m.config.SocketPath)
 		if err == nil {
 			break
 		}
@@ -219,9 +220,10 @@ func (m *MPV) readLoop(conn net.Conn) error {
 
 func (m *MPV) handleEvent(message mpvMessage) {
 	if message.Event == "end-file" {
-		if message.Reason == "error" {
+		switch message.Reason {
+		case "error":
 			m.emit(Event{Type: EventFailed, Error: errors.New(message.Error), State: m.snapshot()})
-		} else if message.Reason == "eof" {
+		case "eof":
 			m.emit(Event{Type: EventEnded, State: m.snapshot()})
 		}
 		return
@@ -260,11 +262,12 @@ func (m *MPV) handleEvent(message mpvMessage) {
 			m.state.Status = "idle"
 		}
 	}
-	if m.state.Buffering {
+	switch {
+	case m.state.Buffering:
 		m.state.Status = "buffering"
-	} else if m.state.Paused {
+	case m.state.Paused:
 		m.state.Status = "paused"
-	} else if m.state.Status != "idle" {
+	case m.state.Status != "idle":
 		m.state.Status = "playing"
 	}
 	state := m.state

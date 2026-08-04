@@ -55,7 +55,7 @@ func NormalizeUsername(value string) (string, string, error) {
 		return "", "", errors.New("username must be between 2 and 32 characters")
 	}
 	for _, char := range username {
-		if !(char >= 'a' && char <= 'z') && !(char >= 'A' && char <= 'Z') && !(char >= '0' && char <= '9') && char != '_' && char != '-' {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '_' && char != '-' {
 			return "", "", errors.New("username may contain only letters, numbers, hyphens, and underscores")
 		}
 	}

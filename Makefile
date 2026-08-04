@@ -1,4 +1,4 @@
-.PHONY: build build-pi build-release deploy-pi test vet check run test-api check-pi-dependencies
+.PHONY: build build-pi build-release deploy-pi test vet lint check run test-api check-pi-dependencies
 
 build:
 	mkdir -p bin
@@ -23,7 +23,10 @@ test:
 vet:
 	go vet ./...
 
-check: vet test
+lint:
+	./scripts/lint.sh
+
+check: lint test
 
 run:
 	go run ./cmd/raspi-media-player

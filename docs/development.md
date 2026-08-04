@@ -3,6 +3,7 @@
 ## Toolchain
 
 - Go 1.24 or newer
+- `golangci-lint` at the version in `.golangci-lint-version`
 - `curl` and `jq` for shell API tests
 - SQLite CLI for operational inspection
 - optional `mpv`, ALSA, and `yt-dlp` for real playback/search testing
@@ -43,14 +44,21 @@ skips first-run setup.
 ## Verification
 
 ```sh
-gofmt -w cmd internal
-go vet ./...
+make lint
 go test -race ./...
 ./scripts/test-all.sh
 ```
 
-`make check` runs vet/unit tests; `make test-api` runs the API regression suite.
-The GitHub CI workflow repeats formatting, vet, race tests, and shell regression
+Install the pinned linter into the repository-local `bin/` directory with the
+official installer:
+
+```sh
+curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b ./bin "$(cat .golangci-lint-version)"
+```
+
+The lint wrapper rejects other versions so local and CI results remain aligned.
+`make check` runs linting and unit tests; `make test-api` runs the API regression
+suite. GitHub CI repeats linting, formatting, race tests, and shell regression
 tests on pushes and pull requests.
 
 When frontend behavior changes, also run `node --check
@@ -75,4 +83,3 @@ contexts so request IDs remain correlated.
 Pushes to `main` run CI and replace the rolling `edge` prerelease after tests
 pass. Pushing a semantic tag such as `v0.2.0` builds a stable GitHub Release.
 See [releases.md](releases.md).
-

@@ -3,11 +3,12 @@ package enrichment
 import (
 	"context"
 	"errors"
-	"github.com/dylanknuth/raspi-media-player/internal/database"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/dylanknuth/raspi-media-player/internal/database"
 )
 
 type fakeProvider struct{ calls atomic.Int32 }

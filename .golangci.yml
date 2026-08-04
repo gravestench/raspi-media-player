@@ -1,0 +1,40 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - gocritic
+    - misspell
+    - noctx
+    - unconvert
+  exclusions:
+    rules:
+      # Cleanup errors cannot change the result after the primary operation.
+      - linters: [errcheck]
+        text: 'Error return value of `.*\.Close` is not checked'
+      - linters: [errcheck]
+        text: 'Error return value of `.*\.Rollback` is not checked'
+      # Pharoah Sanders is the artist's correct spelling.
+      - linters: [misspell]
+        text: '`Pharoah` is a misspelling'
+      # main deliberately owns process exit codes; init.d supervises shutdown.
+      - path: cmd/raspi-media-player/main.go
+        linters: [gocritic]
+        text: exitAfterDefer
+      # Synthetic tests use short-lived requests and databases with no caller context.
+      - path: _test\.go
+        linters: [noctx]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

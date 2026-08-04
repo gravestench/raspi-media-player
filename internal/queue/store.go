@@ -258,7 +258,8 @@ func (s *Store) EnsureDefault(ctx context.Context, sourceURL, title string) erro
 	} else {
 		var id, existingURL string
 		err := tx.QueryRowContext(ctx, `SELECT id, source_url FROM queue_items WHERE is_default = 1`).Scan(&id, &existingURL)
-		if errors.Is(err, sql.ErrNoRows) {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			var duplicate int
 			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE source_url = ?`, sourceURL).Scan(&duplicate); err != nil {
 				return err
@@ -274,9 +275,9 @@ func (s *Store) EnsureDefault(ctx context.Context, sourceURL, title string) erro
 				}
 				changed = true
 			}
-		} else if err != nil {
+		case err != nil:
 			return err
-		} else {
+		default:
 			var duplicate int
 			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM queue_items WHERE source_url = ? AND id <> ?`, sourceURL, id).Scan(&duplicate); err != nil {
 				return err
