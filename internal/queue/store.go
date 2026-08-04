@@ -92,6 +92,10 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func (s *Store) Add(ctx context.Context, sourceURL, displayName string, user *UserSubmitter, limit int) (Snapshot, Item, error) {
+	return s.AddSource(ctx, "direct", sourceURL, displayName, user, limit)
+}
+
+func (s *Store) AddSource(ctx context.Context, sourceKind, sourceURL, displayName string, user *UserSubmitter, limit int) (Snapshot, Item, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Snapshot{}, Item{}, err
@@ -104,7 +108,7 @@ func (s *Store) Add(ctx context.Context, sourceURL, displayName string, user *Us
 	if count >= limit {
 		return Snapshot{}, Item{}, ErrFull
 	}
-	item := Item{ID: newID(), Source: Source{Kind: "direct", URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	item := Item{ID: newID(), Source: Source{Kind: sourceKind, URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	var userID any
 	if user != nil {
 		item.Submitter = Submitter{Kind: "user", UserID: user.ID, Username: user.Username}

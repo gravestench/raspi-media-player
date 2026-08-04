@@ -10,6 +10,7 @@ import (
 
 	"github.com/dylanknuth/raspi-media-player/internal/player"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+	"github.com/dylanknuth/raspi-media-player/internal/source"
 )
 
 type Controller struct {
@@ -27,6 +28,7 @@ type Controller struct {
 	retryAfter    time.Time
 	history       HistoryRecorder
 	desiredVolume int
+	sources       source.Resolver
 }
 
 type HistoryRecorder interface {
@@ -37,6 +39,7 @@ type HistoryRecorder interface {
 type Options struct {
 	RetryLimit int
 	History    HistoryRecorder
+	Sources    source.Resolver
 }
 
 func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, options ...Options) *Controller {
@@ -48,7 +51,11 @@ func New(logger *slog.Logger, queue *queuepkg.Store, output player.Player, optio
 	if len(options) > 0 {
 		history = options[0].History
 	}
-	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int), history: history}
+	var sources source.Resolver = source.DirectRegistry()
+	if len(options) > 0 && options[0].Sources != nil {
+		sources = options[0].Sources
+	}
+	return &Controller{logger: logger, queue: queue, player: output, done: make(chan struct{}), retryLimit: retryLimit, retries: make(map[string]int), history: history, sources: sources}
 }
 
 func (c *Controller) Start(parent context.Context) error {
@@ -126,7 +133,13 @@ func (c *Controller) reconcile() {
 		}
 		return
 	}
-	if err := c.player.Load(c.ctx, next.Source.URL); err != nil {
+	playable, err := c.sources.Resolve(c.ctx, next.Source.Kind, next.Source.URL)
+	if err != nil {
+		_ = c.queue.FinishCurrent(c.ctx, next.ID, fmt.Errorf("resolve source: %w", err))
+		c.logger.Warn("source resolution failed", "error", err, "queue_item_id", next.ID, "source_kind", next.Source.Kind)
+		return
+	}
+	if err := c.player.Load(c.ctx, playable.PlaybackURL); err != nil {
 		if errors.Is(err, player.ErrUnavailable) {
 			_ = c.queue.ResetPlayback(c.ctx, "unavailable", err.Error())
 			return

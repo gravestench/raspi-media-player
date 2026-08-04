@@ -20,6 +20,7 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	"github.com/dylanknuth/raspi-media-player/internal/player"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+	"github.com/dylanknuth/raspi-media-player/internal/source"
 )
 
 var (
@@ -71,6 +72,7 @@ func main() {
 
 	var playbackController *playback.Controller
 	libraryStore := library.NewStore(db, time.Duration(cfg.HistoryDays)*24*time.Hour)
+	sourceRegistry := source.DirectRegistry()
 	if cfg.PlayerEnabled {
 		var output player.Player
 		switch cfg.PlayerBackend {
@@ -82,7 +84,7 @@ func main() {
 			logger.Error("invalid player backend", "player_backend", cfg.PlayerBackend)
 			os.Exit(2)
 		}
-		playbackController = playback.New(logger, queuepkg.NewStore(db), output, playback.Options{RetryLimit: cfg.PlayerRetries, History: libraryStore})
+		playbackController = playback.New(logger, queuepkg.NewStore(db), output, playback.Options{RetryLimit: cfg.PlayerRetries, History: libraryStore, Sources: sourceRegistry})
 		if err := playbackController.Start(ctx); err != nil {
 			logger.Error("playback initialization failed", "error", err)
 			os.Exit(1)
@@ -95,7 +97,7 @@ func main() {
 	}
 
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore})
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore, Sources: sourceRegistry})
 	if err != nil {
 		logger.Error("application initialization failed", "error", err)
 		os.Exit(2)

@@ -292,17 +292,18 @@ Acceptance criteria:
 Goal: add source types without coupling queue and playback logic to a particular
 provider.
 
-- [ ] Define a source resolver interface and normalized playable-source model.
-- [ ] Move direct URLs and radio streams behind source adapters.
-- [ ] Add metadata resolution, caching, timeouts, and cancellation.
-- [ ] Document the supported and maintainable YouTube playback options before
+- [x] Define a source resolver interface and normalized playable-source model.
+- [x] Move direct URLs and radio streams behind source adapters.
+- [x] Add metadata resolution, caching, timeouts, and cancellation.
+- [x] Document the supported and maintainable YouTube playback options before
       selecting an implementation.
-- [ ] Keep any provider-specific executable or credentials optional and outside
+- [x] Keep any provider-specific executable or credentials optional and outside
       the core server.
-- [ ] Detect provider failures and return actionable, non-sensitive errors.
-- [ ] Add contract tests shared by all source adapters.
-- [ ] If an acceptable YouTube approach is selected, implement it as an optional
-      adapter with explicit configuration and tests.
+- [x] Detect provider failures and return actionable, non-sensitive errors.
+- [x] Add contract tests shared by all source adapters.
+- [x] If an acceptable YouTube approach is selected, implement it as an optional
+      adapter with explicit configuration and tests. (No acceptable approach was
+      selected; YouTube URLs return `unsupported_source`.)
 
 Acceptance criteria:
 
@@ -365,8 +366,11 @@ milestone is revised:
 - **Milestone 7:** Complete and verified locally and on the Raspberry Pi on
   2026-08-04.
 - **Milestone 8:** Complete and verified locally on 2026-08-04.
-- **Current milestone:** Milestone 9 — Pluggable sources and YouTube feasibility
-- **Next feature milestone:** Milestone 10 — Hardening and household release
+- **Milestone 9:** Complete and verified locally on 2026-08-04. The provider
+  boundary is implemented; YouTube extraction is intentionally disabled based
+  on the documented technical and platform-policy review.
+- **Current milestone:** Milestone 10 — Hardening and household release
+- **Next feature milestone:** Household release and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10

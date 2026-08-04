@@ -16,6 +16,7 @@ import (
 	"github.com/dylanknuth/raspi-media-player/internal/library"
 	"github.com/dylanknuth/raspi-media-player/internal/playback"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+	"github.com/dylanknuth/raspi-media-player/internal/source"
 )
 
 //go:embed web/*
@@ -38,6 +39,7 @@ type application struct {
 	authLimiter *rateLimiter
 	playback    *playback.Controller
 	library     *library.Store
+	sources     source.Resolver
 }
 
 type Options struct {
@@ -51,6 +53,7 @@ type Options struct {
 	ArgonIterations uint32
 	Playback        *playback.Controller
 	Library         *library.Store
+	Sources         source.Resolver
 }
 
 type requestLoggerKey struct{}
@@ -89,6 +92,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 		opts.SecureCookie = provided.SecureCookie
 		opts.Playback = provided.Playback
 		opts.Library = provided.Library
+		opts.Sources = provided.Sources
 	}
 	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
 		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
@@ -99,7 +103,10 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	if opts.Library == nil {
 		opts.Library = library.NewStore(db, 90*24*time.Hour)
 	}
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library}
+	if opts.Sources == nil {
+		opts.Sources = source.DirectRegistry()
+	}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)

@@ -101,6 +101,30 @@ func TestControllerLoadsAdvancesAndKeepsFailedItems(t *testing.T) {
 	})
 }
 
+func TestUnsupportedProviderDoesNotBlockDirectPlayback(t *testing.T) {
+	store, fake, _ := playbackFixture(t)
+	ctx := context.Background()
+	_, unsupported, err := store.AddSource(ctx, "provider-outage", "provider:item", "", nil, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, direct, err := store.Add(ctx, "https://example.com/still-works.mp3", "", nil, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "direct playback after unsupported provider", func() bool {
+		urls := fake.URLs()
+		return len(urls) == 1 && urls[0] == direct.Source.URL
+	})
+	snapshot, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Items[0].ID != unsupported.ID || snapshot.Items[0].Status != "failed" {
+		t.Fatalf("unsupported provider failure not retained: %+v", snapshot.Items)
+	}
+}
+
 func TestControllerControlsAndStopResume(t *testing.T) {
 	store, fake, controller := playbackFixture(t)
 	ctx := context.Background()

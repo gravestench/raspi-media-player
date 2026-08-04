@@ -62,6 +62,9 @@ Player configuration, queue advancement, and playback controls are documented in
 Household stations, personal favorites and playlists, search, and playback
 history are documented in [docs/library.md](docs/library.md).
 
+The pluggable source boundary and the current YouTube feasibility decision are
+documented in [docs/sources.md](docs/sources.md).
+
 ## Daemon deployment
 
 The init.d service assets and Raspberry Pi deployment helper live in `deploy/`

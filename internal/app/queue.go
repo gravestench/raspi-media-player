@@ -14,6 +14,7 @@ import (
 	"time"
 
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
+	"github.com/dylanknuth/raspi-media-player/internal/source"
 )
 
 const maxQueueRequestBytes = 16 * 1024
@@ -48,7 +49,12 @@ func (a *application) addQueueItem(w http.ResponseWriter, r *http.Request) {
 	}
 	request.URL = strings.TrimSpace(request.URL)
 	request.DisplayName = strings.TrimSpace(request.DisplayName)
-	if err := validateStreamURL(request.URL); err != nil {
+	sourceKind, err := a.sources.Classify(request.URL)
+	if err != nil {
+		if errors.Is(err, source.ErrUnsupported) {
+			writeError(w, http.StatusUnprocessableEntity, "unsupported_source", "this source type is not enabled")
+			return
+		}
 		writeError(w, http.StatusUnprocessableEntity, "invalid_url", err.Error())
 		return
 	}
@@ -60,7 +66,7 @@ func (a *application) addQueueItem(w http.ResponseWriter, r *http.Request) {
 	if identity := identityFromContext(r.Context()); identity != nil {
 		submitter = &queuepkg.UserSubmitter{ID: identity.Session.User.ID, Username: identity.Session.User.Username}
 	}
-	snapshot, item, err := a.queue.Add(r.Context(), request.URL, request.DisplayName, submitter, a.options.QueueLimit)
+	snapshot, item, err := a.queue.AddSource(r.Context(), sourceKind, request.URL, request.DisplayName, submitter, a.options.QueueLimit)
 	if err != nil {
 		a.queueError(w, r, err)
 		return
@@ -191,6 +197,8 @@ func (a *application) queueError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, http.StatusConflict, "revision_conflict", "the queue changed; refresh and try again")
 	case errors.Is(err, queuepkg.ErrFull):
 		writeError(w, http.StatusConflict, "queue_full", "the queue has reached its configured limit")
+	case errors.Is(err, source.ErrUnsupported):
+		writeError(w, http.StatusUnprocessableEntity, "unsupported_source", "this source type is not enabled")
 	default:
 		a.internalError(w, r, "queue operation", err)
 	}
