@@ -52,6 +52,9 @@ daemon log location.
 The anonymous shared queue API is documented in
 [docs/queue-api.md](docs/queue-api.md).
 
+Optional local accounts, access modes, sessions, and CSRF behavior are documented
+in [docs/authentication.md](docs/authentication.md).
+
 ## Daemon deployment
 
 Initial init.d assets live in `deploy/`. Automated installation and Raspberry Pi

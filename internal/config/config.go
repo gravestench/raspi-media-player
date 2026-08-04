@@ -12,6 +12,12 @@ type Config struct {
 	LogLevel     string
 	QueueLimit   int
 	QueueRate    int
+	AccessMode   string
+	AuthRate     int
+	SessionDays  int
+	SecureCookie bool
+	ArgonMemory  int
+	ArgonTime    int
 }
 
 func Default() Config {
@@ -22,6 +28,12 @@ func Default() Config {
 		LogLevel:     env("RASPI_MEDIA_PLAYER_LOG_LEVEL", "info"),
 		QueueLimit:   envInt("RASPI_MEDIA_PLAYER_QUEUE_LIMIT", 100),
 		QueueRate:    envInt("RASPI_MEDIA_PLAYER_QUEUE_RATE", 20),
+		AccessMode:   env("RASPI_MEDIA_PLAYER_ACCESS_MODE", "open"),
+		AuthRate:     envInt("RASPI_MEDIA_PLAYER_AUTH_RATE", 10),
+		SessionDays:  envInt("RASPI_MEDIA_PLAYER_SESSION_DAYS", 30),
+		SecureCookie: env("RASPI_MEDIA_PLAYER_SECURE_COOKIE", "false") == "true",
+		ArgonMemory:  envInt("RASPI_MEDIA_PLAYER_ARGON_MEMORY_KIB", 65536),
+		ArgonTime:    envInt("RASPI_MEDIA_PLAYER_ARGON_ITERATIONS", 3),
 	}
 }
 

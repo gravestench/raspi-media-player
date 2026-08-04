@@ -32,6 +32,12 @@ func main() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "log level: debug, info, warn, or error")
 	flag.IntVar(&cfg.QueueLimit, "queue-limit", cfg.QueueLimit, "maximum number of queued items")
 	flag.IntVar(&cfg.QueueRate, "queue-rate", cfg.QueueRate, "anonymous queue additions allowed per client per minute")
+	flag.StringVar(&cfg.AccessMode, "access-mode", cfg.AccessMode, "access mode: open, accounts_optional, or accounts_required")
+	flag.IntVar(&cfg.AuthRate, "auth-rate", cfg.AuthRate, "login/signup attempts allowed per client per minute")
+	flag.IntVar(&cfg.SessionDays, "session-days", cfg.SessionDays, "session lifetime in days")
+	flag.BoolVar(&cfg.SecureCookie, "secure-cookie", cfg.SecureCookie, "require HTTPS for session cookies")
+	flag.IntVar(&cfg.ArgonMemory, "argon-memory", cfg.ArgonMemory, "Argon2id memory in KiB")
+	flag.IntVar(&cfg.ArgonTime, "argon-iterations", cfg.ArgonTime, "Argon2id iteration count")
 	flag.Parse()
 
 	logger, err := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
@@ -49,7 +55,11 @@ func main() {
 	defer db.Close()
 
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate})
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime)})
+	if err != nil {
+		logger.Error("application initialization failed", "error", err)
+		os.Exit(2)
+	}
 	server := &http.Server{
 		Addr:              cfg.Address,
 		Handler:           handler,

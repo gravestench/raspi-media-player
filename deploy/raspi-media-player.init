@@ -33,7 +33,13 @@ case "$1" in
       -log-format "${RASPI_MEDIA_PLAYER_LOG_FORMAT:-json}" \
       -log-level "${RASPI_MEDIA_PLAYER_LOG_LEVEL:-info}" \
       -queue-limit "${RASPI_MEDIA_PLAYER_QUEUE_LIMIT:-100}" \
-      -queue-rate "${RASPI_MEDIA_PLAYER_QUEUE_RATE:-20}"
+      -queue-rate "${RASPI_MEDIA_PLAYER_QUEUE_RATE:-20}" \
+      -access-mode "${RASPI_MEDIA_PLAYER_ACCESS_MODE:-open}" \
+      -auth-rate "${RASPI_MEDIA_PLAYER_AUTH_RATE:-10}" \
+      -session-days "${RASPI_MEDIA_PLAYER_SESSION_DAYS:-30}" \
+      -secure-cookie="${RASPI_MEDIA_PLAYER_SECURE_COOKIE:-false}" \
+      -argon-memory "${RASPI_MEDIA_PLAYER_ARGON_MEMORY_KIB:-65536}" \
+      -argon-iterations "${RASPI_MEDIA_PLAYER_ARGON_ITERATIONS:-3}"
     log_end_msg $?
     ;;
   stop)

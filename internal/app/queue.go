@@ -56,7 +56,11 @@ func (a *application) addQueueItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "display_name_too_long", "display_name must be at most 64 characters")
 		return
 	}
-	snapshot, item, err := a.queue.Add(r.Context(), request.URL, request.DisplayName, a.options.QueueLimit)
+	var submitter *queuepkg.UserSubmitter
+	if identity := identityFromContext(r.Context()); identity != nil {
+		submitter = &queuepkg.UserSubmitter{ID: identity.Session.User.ID, Username: identity.Session.User.Username}
+	}
+	snapshot, item, err := a.queue.Add(r.Context(), request.URL, request.DisplayName, submitter, a.options.QueueLimit)
 	if err != nil {
 		a.queueError(w, r, err)
 		return

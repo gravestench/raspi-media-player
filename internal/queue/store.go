@@ -32,6 +32,8 @@ type Source struct {
 }
 
 type Submitter struct {
+	UserID      string `json:"user_id,omitempty"`
+	Username    string `json:"username,omitempty"`
 	Kind        string `json:"kind"`
 	DisplayName string `json:"display_name,omitempty"`
 }
@@ -48,6 +50,10 @@ type Snapshot struct {
 }
 
 type Store struct{ db *sql.DB }
+type UserSubmitter struct {
+	ID       string
+	Username string
+}
 
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
@@ -56,7 +62,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err := s.db.QueryRowContext(ctx, `SELECT revision, playback_status, volume FROM queue_state WHERE singleton = 1`).Scan(&snapshot.Revision, &snapshot.Playback.Status, &snapshot.Playback.Volume); err != nil {
 		return snapshot, fmt.Errorf("read queue state: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id, source_kind, source_url, display_name, position, added_at FROM queue_items ORDER BY position`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.id, q.source_kind, q.source_url, q.display_name, q.position, q.added_at, COALESCE(u.id, ''), COALESCE(u.username, '') FROM queue_items q LEFT JOIN users u ON u.id = q.submitter_user_id ORDER BY q.position`)
 	if err != nil {
 		return snapshot, fmt.Errorf("list queue: %w", err)
 	}
@@ -64,10 +70,14 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	snapshot.Items = make([]Item, 0)
 	for rows.Next() {
 		var item Item
-		if err := rows.Scan(&item.ID, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Source.Kind, &item.Source.URL, &item.Submitter.DisplayName, &item.Position, &item.AddedAt, &item.Submitter.UserID, &item.Submitter.Username); err != nil {
 			return snapshot, fmt.Errorf("scan queue item: %w", err)
 		}
 		item.Submitter.Kind = "anonymous"
+		if item.Submitter.UserID != "" {
+			item.Submitter.Kind = "user"
+			item.Submitter.DisplayName = ""
+		}
 		item.Status = "queued"
 		if item.Position == 0 {
 			item.Status = "current"
@@ -77,7 +87,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	return snapshot, rows.Err()
 }
 
-func (s *Store) Add(ctx context.Context, sourceURL, displayName string, limit int) (Snapshot, Item, error) {
+func (s *Store) Add(ctx context.Context, sourceURL, displayName string, user *UserSubmitter, limit int) (Snapshot, Item, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Snapshot{}, Item{}, err
@@ -91,10 +101,15 @@ func (s *Store) Add(ctx context.Context, sourceURL, displayName string, limit in
 		return Snapshot{}, Item{}, ErrFull
 	}
 	item := Item{ID: newID(), Source: Source{Kind: "direct", URL: sourceURL}, Submitter: Submitter{Kind: "anonymous", DisplayName: displayName}, Position: position, Status: "queued", AddedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	var userID any
+	if user != nil {
+		item.Submitter = Submitter{Kind: "user", UserID: user.ID, Username: user.Username}
+		userID = user.ID
+	}
 	if position == 0 {
 		item.Status = "current"
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, source_kind, source_url, display_name, position, added_at) VALUES (?, ?, ?, ?, ?, ?)`, item.ID, item.Source.Kind, item.Source.URL, item.Submitter.DisplayName, item.Position, item.AddedAt)
+	_, err = tx.ExecContext(ctx, `INSERT INTO queue_items (id, source_kind, source_url, display_name, position, added_at, submitter_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, item.ID, item.Source.Kind, item.Source.URL, item.Submitter.DisplayName, item.Position, item.AddedAt, userID)
 	if err != nil {
 		if isUniqueError(err) {
 			return Snapshot{}, Item{}, ErrDuplicate

@@ -18,6 +18,7 @@ trap cleanup EXIT INT TERM
 
 cd "$PROJECT_ROOT"
 go build -o "$TEST_TMP/raspi-media-player" ./cmd/raspi-media-player
+export TEST_SERVER_BINARY="$TEST_TMP/raspi-media-player"
 "$TEST_TMP/raspi-media-player" \
     -addr "127.0.0.1:${TEST_PORT}" \
     -db "$TEST_TMP/test.sqlite" \
@@ -37,4 +38,5 @@ done
 
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-health.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-queue.sh"
+TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-auth.sh"
 echo "All API regression tests passed."

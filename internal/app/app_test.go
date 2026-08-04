@@ -20,7 +20,11 @@ func testHandler(t *testing.T, logs *bytes.Buffer, options ...Options) http.Hand
 	}
 	t.Cleanup(func() { db.Close() })
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
-	return New(logger, db, BuildInfo{Version: "test", Commit: "abc", BuiltAt: "now"}, options...)
+	handler, err := New(logger, db, BuildInfo{Version: "test", Commit: "abc", BuiltAt: "now"}, options...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handler
 }
 
 func TestHealthAndVersionEndpoints(t *testing.T) {

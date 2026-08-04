@@ -136,23 +136,23 @@ Acceptance criteria:
 
 Goal: add identity without making accounts a prerequisite for household use.
 
-- [ ] Add configuration for open, accounts-optional, and accounts-required
+- [x] Add configuration for open, accounts-optional, and accounts-required
       access modes.
-- [ ] Implement username availability lookup as part of the login/signup flow.
-- [ ] Implement username-and-password login.
-- [ ] For an unknown username, return a response the frontend uses to transition
+- [x] Implement username availability lookup as part of the login/signup flow.
+- [x] Implement username-and-password login.
+- [x] For an unknown username, return a response the frontend uses to transition
       to password confirmation/account creation.
-- [ ] Create the account only after matching password confirmation, then issue a
+- [x] Create the account only after matching password confirmation, then issue a
       session immediately.
-- [ ] Hash passwords using a current memory-hard password hashing scheme with
+- [x] Hash passwords using a current memory-hard password hashing scheme with
       per-password salts and configurable cost.
-- [ ] Store revocable, expiring sessions in secure HTTP-only cookies.
-- [ ] Implement logout, current-session, and session-revocation endpoints.
-- [ ] Add CSRF protection for cookie-authenticated mutations.
-- [ ] Add login/signup throttling without blocking anonymous queue use.
-- [ ] Attribute new queue items to an account when signed in and preserve
+- [x] Store revocable, expiring sessions in secure HTTP-only cookies.
+- [x] Implement logout, current-session, and session-revocation endpoints.
+- [x] Add CSRF protection for cookie-authenticated mutations.
+- [x] Add login/signup throttling without blocking anonymous queue use.
+- [x] Attribute new queue items to an account when signed in and preserve
       anonymous attribution otherwise.
-- [ ] Do not reveal account-sensitive details beyond the intentional unknown
+- [x] Do not reveal account-sensitive details beyond the intentional unknown
       username transition required by this household-oriented UX.
 
 Acceptance criteria:
@@ -354,8 +354,9 @@ milestone is revised:
   validation remains pending.
 - **Milestone 1:** Complete and verified on 2026-08-04.
 - **Milestone 2:** Complete and verified on 2026-08-04.
-- **Current milestone:** Milestone 3 — Optional local accounts and sessions
-- **Next feature milestone:** Milestone 4 — Raspberry Pi playback controller
+- **Milestone 3:** Complete and verified on 2026-08-04.
+- **Current milestone:** Milestone 4 — Raspberry Pi playback controller
+- **Next feature milestone:** Milestone 5 — Real-time household web interface
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10

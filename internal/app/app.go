@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/dylanknuth/raspi-media-player/internal/auth"
 	queuepkg "github.com/dylanknuth/raspi-media-player/internal/queue"
 )
 
@@ -24,27 +26,68 @@ type BuildInfo struct {
 }
 
 type application struct {
-	logger  *slog.Logger
-	db      *sql.DB
-	build   BuildInfo
-	queue   *queuepkg.Store
-	options Options
-	limiter *rateLimiter
+	logger      *slog.Logger
+	db          *sql.DB
+	build       BuildInfo
+	queue       *queuepkg.Store
+	options     Options
+	limiter     *rateLimiter
+	auth        *auth.Store
+	authLimiter *rateLimiter
 }
 
 type Options struct {
-	QueueLimit int
-	QueueRate  int
+	QueueLimit      int
+	QueueRate       int
+	AccessMode      string
+	AuthRate        int
+	SessionLifetime time.Duration
+	SecureCookie    bool
+	ArgonMemory     uint32
+	ArgonIterations uint32
 }
 
 type requestLoggerKey struct{}
+type requestMetadataKey struct{}
+type requestMetadata struct {
+	userID   string
+	username string
+}
 
-func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) http.Handler {
-	opts := Options{QueueLimit: 100, QueueRate: 20}
+func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (http.Handler, error) {
+	opts := Options{QueueLimit: 100, QueueRate: 20, AccessMode: "open", AuthRate: 10, SessionLifetime: 30 * 24 * time.Hour, ArgonMemory: 64 * 1024, ArgonIterations: 3}
 	if len(options) > 0 {
-		opts = options[0]
+		provided := options[0]
+		if provided.QueueLimit > 0 {
+			opts.QueueLimit = provided.QueueLimit
+		}
+		if provided.QueueRate > 0 {
+			opts.QueueRate = provided.QueueRate
+		}
+		if provided.AccessMode != "" {
+			opts.AccessMode = provided.AccessMode
+		}
+		if provided.AuthRate > 0 {
+			opts.AuthRate = provided.AuthRate
+		}
+		if provided.SessionLifetime > 0 {
+			opts.SessionLifetime = provided.SessionLifetime
+		}
+		if provided.ArgonMemory > 0 {
+			opts.ArgonMemory = provided.ArgonMemory
+		}
+		if provided.ArgonIterations > 0 {
+			opts.ArgonIterations = provided.ArgonIterations
+		}
+		opts.SecureCookie = provided.SecureCookie
 	}
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute)}
+	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
+		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
+	}
+	params := auth.DefaultPasswordParams()
+	params.Memory = opts.ArgonMemory
+	params.Iterations = opts.ArgonIterations
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
@@ -55,9 +98,16 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) h
 	mux.HandleFunc("PUT /api/v1/queue/order", a.reorderQueue)
 	mux.HandleFunc("DELETE /api/v1/queue", a.clearQueue)
 	mux.HandleFunc("POST /api/v1/queue/skip", a.skipQueueItem)
+	mux.HandleFunc("GET /api/v1/auth/usernames/{username}", a.usernameAvailability)
+	mux.HandleFunc("POST /api/v1/auth/login", a.login)
+	mux.HandleFunc("POST /api/v1/auth/signup", a.signup)
+	mux.HandleFunc("GET /api/v1/auth/session", a.currentSession)
+	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
+	mux.HandleFunc("GET /api/v1/auth/sessions", a.listSessions)
+	mux.HandleFunc("DELETE /api/v1/auth/sessions/{id}", a.revokeSession)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
-	return requestLogging(logger, mux)
+	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(mux)))), nil
 }
 
 func (a *application) live(w http.ResponseWriter, _ *http.Request) {
@@ -122,10 +172,13 @@ func requestLogging(logger *slog.Logger, next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Request-ID", requestID)
 		requestLogger := logger.With("request_id", requestID)
-		r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey{}, requestLogger))
+		metadata := &requestMetadata{}
+		ctx := context.WithValue(r.Context(), requestLoggerKey{}, requestLogger)
+		ctx = context.WithValue(ctx, requestMetadataKey{}, metadata)
+		r = r.WithContext(ctx)
 		recorder := &responseRecorder{ResponseWriter: w}
 		next.ServeHTTP(recorder, r)
-		requestLogger.Info("http request",
+		attributes := []any{
 			"method", r.Method,
 			"path", r.URL.Path,
 			"route", r.Pattern,
@@ -133,7 +186,11 @@ func requestLogging(logger *slog.Logger, next http.Handler) http.Handler {
 			"duration_ms", time.Since(started).Milliseconds(),
 			"response_bytes", recorder.size,
 			"remote_address", r.RemoteAddr,
-		)
+		}
+		if metadata.userID != "" {
+			attributes = append(attributes, "user_id", metadata.userID, "username", metadata.username)
+		}
+		requestLogger.Info("http request", attributes...)
 	})
 }
 
