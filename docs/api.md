@@ -105,6 +105,7 @@ Login accepts `username` and `password`. Signup also accepts
 | GET | `/api/v1/history?q=` | recent household playback history |
 | GET | `/api/v1/library/search?q=` | combined station/playlist/history search |
 | GET | `/api/v1/account` | private taste/history/favorites/playlists dashboard |
+| PUT | `/api/v1/queue/items/{id}/like` | associate a queued track with the signed-in user's taste profile |
 
 Personal mutations and account dashboard routes require authentication.
 
@@ -143,4 +144,3 @@ removing the last administrator.
 The shell scripts in `scripts/test-*.sh` are the most precise runnable request
 examples. `scripts/test-all.sh` launches an isolated server and exercises every
 API group, persistence, concurrency, setup, validation, and access modes.
-

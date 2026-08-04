@@ -244,7 +244,11 @@ func (e *Engine) markUserSelected(ctx context.Context, userID string) error {
 
 func (e *Engine) userPreferences(ctx context.Context, userID string) ([]preference, error) {
 	rows, err := e.db.QueryContext(ctx, `
-		SELECT title FROM playback_history WHERE submitter_user_id = ? AND title <> '' ORDER BY started_at DESC LIMIT 500`, userID)
+		SELECT title FROM (
+			SELECT title, started_at AS associated_at FROM playback_history WHERE submitter_user_id = ? AND title <> ''
+			UNION ALL
+			SELECT title, created_at AS associated_at FROM track_likes WHERE user_id = ? AND title <> ''
+		) ORDER BY associated_at DESC LIMIT 500`, userID, userID)
 	if err != nil {
 		return nil, err
 	}

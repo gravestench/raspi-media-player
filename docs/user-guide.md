@@ -34,6 +34,12 @@ no email address and have no email recovery flow.
 Signed-in users gain favorites, playlists, a private listening dashboard, and a
 personal identity in history and the queue.
 
+While a track is playing, press the heart button to add it to your listening
+profile. This is useful for recommendations selected by auto-queue or submitted
+by somebody else. Liked tracks appear on the Account screen, contribute to genre
+counts, and influence the active-listener auto-queue strategy. Liking does not
+interrupt playback or add a duplicate queue item.
+
 ## Skip voting
 
 When skip voting is enabled, the skip control casts or withdraws a vote. The
@@ -95,4 +101,3 @@ The interface is responsive. On small screens the current artist image becomes
 a darkened background banner behind readable metadata, primary navigation moves
 to the bottom, forms stack vertically, and the queue keeps controls reachable.
 Reduced-motion browser preferences disable nonessential transitions.
-

@@ -30,7 +30,9 @@ function render(snapshot) {
   state.snapshot = snapshot;
   const playback = snapshot.playback || {};
   const current = snapshot.items.find(item => item.id === playback.current_item_id) || snapshot.items.find(item => item.status === 'current');
-  const displayTitle = playback.title || (current ? sourceLabel(current.source.url) : 'Nothing playing');
+  const canonicalTitle = current?.title || '';
+  const enrichmentTitle = current?.source.kind === 'direct' ? (playback.title || canonicalTitle) : (canonicalTitle || playback.title);
+  const displayTitle = enrichmentTitle || (current ? sourceLabel(current.source.url) : 'Nothing playing');
   $('#now-playing-heading').textContent = displayTitle;
   $('#now-source').textContent = current ? `${current.source.kind === 'direct' ? 'Stream' : current.source.kind} · ${current.source.url}` : 'Add a radio stream or audio URL to get started.';
   $('#position').textContent = formatTime(playback.position_seconds);
@@ -43,19 +45,20 @@ function render(snapshot) {
   $('#pause-button').disabled = !hasCurrent || playback.paused;
   $('#resume-button').disabled = !hasCurrent || (!playback.paused && playback.status !== 'stopped');
   $('#skip-button').disabled = !hasCurrent;
+  $('#like-button').hidden = !state.session; $('#like-button').disabled = !hasCurrent || !state.session;
   const vote = snapshot.skip_vote; const voteStatus = $('#vote-status');
   if (vote?.enabled && hasCurrent) {
     voteStatus.hidden = false; voteStatus.textContent = vote.voted ? `Your vote is in · ${vote.votes} of ${vote.required} needed` : `${vote.votes} of ${vote.required} skip votes · ${vote.active_listeners} active listener${vote.active_listeners === 1 ? '' : 's'}`;
     $('#skip-button').textContent = vote.voted ? '✓' : '›|'; $('#skip-button').setAttribute('aria-label', vote.voted ? 'Withdraw skip vote' : 'Vote to skip current item');
   } else { voteStatus.hidden = true; $('#skip-button').textContent = '›|'; $('#skip-button').setAttribute('aria-label', 'Skip current item'); }
   renderQueue(snapshot.items);
-  if (playback.title && playback.title !== state.enrichmentTitle) {
-    state.enrichmentTitle = playback.title;
+  if (enrichmentTitle && enrichmentTitle !== state.enrichmentTitle) {
+    state.enrichmentTitle = enrichmentTitle;
     state.enrichmentGeneration += 1;
     resetNowArtwork(true);
-    loadEnrichment(playback.title, renderNowEnrichment, 0, state.enrichmentGeneration);
+    loadEnrichment(enrichmentTitle, renderNowEnrichment, 0, state.enrichmentGeneration);
   }
-  if (!playback.title) { state.enrichmentTitle = ''; state.enrichmentGeneration += 1; $('#artist-panel').hidden = true; resetNowArtwork(false); }
+  if (!enrichmentTitle) { state.enrichmentTitle = ''; state.enrichmentGeneration += 1; $('#artist-panel').hidden = true; resetNowArtwork(false); }
 }
 
 async function loadEnrichment(title, renderer, attempt = 0, generation = null) {
@@ -179,6 +182,7 @@ function renderIdentity() {
   else { button.textContent = 'Log in'; footer.textContent = 'Browsing anonymously'; }
   document.querySelectorAll('[data-auth-nav]').forEach(link => { link.hidden = !state.session; });
   document.querySelectorAll('[data-admin-nav]').forEach(link => { link.hidden = !state.session?.user?.is_admin; });
+  $('#like-button').hidden = !state.session;
 }
 
 function resetAuth() { $('#login-form').hidden = false; $('#signup-form').hidden = true; $('#login-error').textContent = ''; $('#signup-error').textContent = ''; state.pendingSignup = null; }
@@ -232,6 +236,7 @@ async function queuePlaylist(playlist) { for (const item of playlist.items) { tr
 
 $('#pause-button').addEventListener('click', () => control('/api/v1/playback/pause'));
 $('#resume-button').addEventListener('click', () => control('/api/v1/playback/resume'));
+$('#like-button').addEventListener('click', async event => { const id = state.snapshot?.playback?.current_item_id; if (!id) return; event.currentTarget.disabled = true; try { await api(`/api/v1/queue/items/${id}/like`, { method:'PUT' }); event.currentTarget.textContent = '♥'; showToast('Added to your listening profile.'); } catch (error) { showToast(error.message); } finally { event.currentTarget.disabled = false; } });
 $('#skip-button').addEventListener('click', async () => { try { const voted = state.snapshot?.skip_vote?.voted; render(await api('/api/v1/queue/skip', { method: voted ? 'DELETE' : 'POST', headers: revisionHeader() })); } catch (error) { showToast(error.message); refresh(); } });
 $('#clear-button').addEventListener('click', async () => { try { render(await api('/api/v1/queue', { method: 'DELETE', headers: revisionHeader() })); } catch (error) { showToast(error.message); } });
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });
@@ -277,9 +282,10 @@ async function loadAccount() {
     const value = await api('/api/v1/account'); root.replaceChildren();
     const genres = dashboardCard('Your genres'); const genreCloud = document.createElement('div'); genreCloud.className = 'genre-cloud'; (value.genres || []).forEach(item => { const tag = document.createElement('button'); tag.type = 'button'; tag.textContent = `${item.name} · ${item.count}`; tag.addEventListener('click', () => discoverGenre(item.name)); genreCloud.append(tag); }); if (!value.genres?.length) genreCloud.textContent = 'Play some enriched tracks to build your taste profile.'; genres.append(genreCloud);
     const recent = dashboardCard('Recently played'); (value.recent || []).slice(0, 20).forEach(item => recent.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url)));
+    const likes = dashboardCard('Liked tracks'); (value.likes || []).slice(0, 20).forEach(item => likes.append(queueableRow(item.title || sourceLabel(item.source_url), item.source_url)));
     const favorites = dashboardCard('Favorite stations'); (value.favorites || []).forEach(item => favorites.append(queueableRow(item.name, item.stream_url)));
     const playlists = dashboardCard('Playlists'); (value.playlists || []).forEach(item => { const row = document.createElement('div'); row.className = 'dashboard-row'; row.append(Object.assign(document.createElement('strong'), { textContent: item.name }), Object.assign(document.createElement('span'), { textContent: `${item.items.length} items` })); const button = actionButton('▶', `Queue ${item.name}`, () => queuePlaylist(item)); row.append(button); playlists.append(row); });
-    root.append(genres, recent, favorites, playlists);
+    root.append(genres, likes, recent, favorites, playlists);
   } catch (error) { root.textContent = error.message; }
 }
 function dashboardCard(title) { const card = document.createElement('article'); card.className = 'dashboard-card'; const heading = document.createElement('h3'); heading.textContent = title; card.append(heading); return card; }

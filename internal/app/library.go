@@ -41,13 +41,25 @@ func (a *application) accountDashboard(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, "list account playlists", err)
 		return
 	}
+	likes, err := a.library.ListLikedTracks(r.Context(), userID, 100)
+	if err != nil {
+		a.internalError(w, r, "list liked tracks", err)
+		return
+	}
 	genreCounts := map[string]int{}
 	if a.enrichment != nil {
+		titles := make([]string, 0, len(history)+len(likes))
 		for _, item := range history {
-			if item.Title == "" {
+			titles = append(titles, item.Title)
+		}
+		for _, item := range likes {
+			titles = append(titles, item.Title)
+		}
+		for _, title := range titles {
+			if title == "" {
 				continue
 			}
-			value, lookupErr := a.enrichment.Lookup(r.Context(), item.Title)
+			value, lookupErr := a.enrichment.Lookup(r.Context(), title)
 			if lookupErr != nil || value.Status != "ready" {
 				continue
 			}
@@ -73,7 +85,39 @@ func (a *application) accountDashboard(w http.ResponseWriter, r *http.Request) {
 	if len(genres) > 20 {
 		genres = genres[:20]
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user": identity.Session.User, "genres": genres, "recent": history, "favorites": favorites, "playlists": playlists})
+	writeJSON(w, http.StatusOK, map[string]any{"user": identity.Session.User, "genres": genres, "recent": history, "likes": likes, "favorites": favorites, "playlists": playlists})
+}
+
+func (a *application) likeQueueItem(w http.ResponseWriter, r *http.Request) {
+	identity := requireIdentity(w, r)
+	if identity == nil {
+		return
+	}
+	snapshot, err := a.queue.Snapshot(r.Context())
+	if err != nil {
+		a.internalError(w, r, "read queue for like", err)
+		return
+	}
+	for _, item := range snapshot.Items {
+		if item.ID != r.PathValue("id") {
+			continue
+		}
+		title := strings.TrimSpace(item.Title)
+		if item.ID == snapshot.Playback.CurrentItemID && strings.TrimSpace(snapshot.Playback.Title) != "" && item.Source.Kind == "direct" {
+			title = strings.TrimSpace(snapshot.Playback.Title)
+		}
+		if title == "" {
+			title = item.Source.URL
+		}
+		liked, likeErr := a.library.LikeTrack(r.Context(), identity.Session.User.ID, item.Source.Kind, item.Source.URL, title)
+		if likeErr != nil {
+			a.libraryError(w, r, likeErr)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"liked": true, "track": liked})
+		return
+	}
+	writeError(w, http.StatusNotFound, "queue_item_not_found", "queue item was not found")
 }
 
 type favoriteRequest struct {

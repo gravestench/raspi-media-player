@@ -53,3 +53,38 @@ func TestLibraryAPIOwnershipAndFavorites(t *testing.T) {
 		t.Fatalf("search: %d %s", search.Code, search.Body.String())
 	}
 }
+
+func TestLikeQueueItemAddsTrackToUserProfile(t *testing.T) {
+	var logs bytes.Buffer
+	handler := testHandler(t, &logs, Options{ArgonMemory: 1024, ArgonIterations: 1, AuthRate: 20, SessionLifetime: time.Hour})
+	signup := authRequest(t, handler, http.MethodPost, "/api/v1/auth/signup", `{"username":"listener","password":"listener-password","password_confirmation":"listener-password"}`, nil, "")
+	account := decodeAuth(t, signup)
+	cookies := sessionCookies(signup)
+	queued := authRequest(t, handler, http.MethodPost, "/api/v1/queue/items", `{"url":"https://www.youtube.com/watch?v=liked123","title":"Artist Name - Recommended Song"}`, nil, "")
+	if queued.Code != http.StatusCreated {
+		t.Fatalf("queue: %d %s", queued.Code, queued.Body.String())
+	}
+	var snapshot struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(queued.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("queue items: %+v", snapshot.Items)
+	}
+	liked := authRequest(t, handler, http.MethodPut, "/api/v1/queue/items/"+snapshot.Items[0].ID+"/like", `{}`, cookies, account.CSRFToken)
+	if liked.Code != http.StatusOK || !bytes.Contains(liked.Body.Bytes(), []byte(`"liked":true`)) {
+		t.Fatalf("like: %d %s", liked.Code, liked.Body.String())
+	}
+	dashboard := authRequest(t, handler, http.MethodGet, "/api/v1/account", "", cookies, "")
+	if dashboard.Code != http.StatusOK || !bytes.Contains(dashboard.Body.Bytes(), []byte("Recommended Song")) {
+		t.Fatalf("account likes: %d %s", dashboard.Code, dashboard.Body.String())
+	}
+	duplicate := authRequest(t, handler, http.MethodPut, "/api/v1/queue/items/"+snapshot.Items[0].ID+"/like", `{}`, cookies, account.CSRFToken)
+	if duplicate.Code != http.StatusOK {
+		t.Fatalf("repeat like: %d %s", duplicate.Code, duplicate.Body.String())
+	}
+}

@@ -540,6 +540,30 @@ Acceptance criteria:
 
 ---
 
+## Milestone 20 — Unified playback metadata and personal likes
+
+Goal: show the same canonical enriched identity everywhere and let listeners
+claim recommendations they enjoy as part of their personal taste profile.
+
+- [x] Prefer the canonical queued title for YouTube Now Playing enrichment while
+      retaining changing player metadata for live radio streams.
+- [x] Add an authenticated, idempotent track-like API and persistent storage.
+- [x] Put the like action in the Now Playing controls without interrupting or
+      duplicating playback.
+- [x] Display liked tracks on the account dashboard and include them in genre
+      counts and active-listener auto-queue weighting.
+- [x] Cover likes with unit, API, migration, and full regression tests.
+
+Acceptance criteria:
+
+- Now Playing and its matching queue row resolve metadata from the same title.
+- A signed-in listener can associate somebody else's or auto-queue's current
+  track with their profile in one action.
+- Repeated likes do not create duplicates, and anonymous visitors are prompted
+  by the existing authentication boundary.
+
+---
+
 ## Deferred ideas
 
 These are intentionally outside the first household-ready release unless a
@@ -587,6 +611,8 @@ milestone is revised:
 - **Milestone 19:** Three-mode auto-queue strategy controls: persistent fair
   rotation across active listeners, explicit artist/genre seeds, and cached
   related-artist/genre continuation from the last queued item.
+- **Milestone 20:** Unified Now Playing enrichment plus persistent personal
+  likes that feed the account dashboard and recommendation profile.
 - **Current milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5

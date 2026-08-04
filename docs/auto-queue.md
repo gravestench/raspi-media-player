@@ -25,7 +25,8 @@ The engine selects the active user whose last successful auto-queue turn is
 oldest. Users with no previous turn tie and one is selected randomly. After a
 successful addition, the turn timestamp is persisted in SQLite, so everyone is
 represented across repeated refills and service restarts. A selected user's
-recent personal history becomes the weighted artist/genre pool for that turn.
+recent personal history and explicitly liked tracks become the weighted
+artist/genre pool for that turn.
 
 ### Specific artists or genres
 

@@ -52,6 +52,12 @@ type HistoryItem struct {
 	Outcome         string `json:"outcome"`
 	Error           string `json:"error,omitempty"`
 }
+type LikedTrack struct {
+	SourceKind string `json:"source_kind"`
+	SourceURL  string `json:"source_url"`
+	Title      string `json:"title"`
+	CreatedAt  string `json:"created_at"`
+}
 type SearchResults struct {
 	Stations  []Station     `json:"stations"`
 	Playlists []Playlist    `json:"playlists"`
@@ -390,6 +396,36 @@ func (s *Store) ListUserHistory(ctx context.Context, userID string, limit int) (
 	for rows.Next() {
 		var value HistoryItem
 		if err := rows.Scan(&value.ID, &value.QueueItemID, &value.SourceKind, &value.SourceURL, &value.Title, &value.SubmitterUserID, &value.StartedAt, &value.FinishedAt, &value.Outcome, &value.Error); err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) LikeTrack(ctx context.Context, userID, kind, sourceURL, title string) (LikedTrack, error) {
+	title = strings.TrimSpace(title)
+	if title == "" || len(title) > 500 {
+		return LikedTrack{}, errors.New("track title must be between 1 and 500 characters")
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO track_likes (user_id, source_kind, source_url, title, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, source_url) DO UPDATE SET source_kind = excluded.source_kind, title = excluded.title, created_at = excluded.created_at`, userID, kind, sourceURL, title, now)
+	return LikedTrack{SourceKind: kind, SourceURL: sourceURL, Title: title, CreatedAt: now}, err
+}
+
+func (s *Store) ListLikedTracks(ctx context.Context, userID string, limit int) ([]LikedTrack, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT source_kind, source_url, title, created_at FROM track_likes WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]LikedTrack, 0)
+	for rows.Next() {
+		var value LikedTrack
+		if err := rows.Scan(&value.SourceKind, &value.SourceURL, &value.Title, &value.CreatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, value)
