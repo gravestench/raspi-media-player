@@ -42,6 +42,7 @@ type application struct {
 	library     *library.Store
 	sources     source.Resolver
 	enrichment  *enrichment.Coordinator
+	imageCache  *enrichment.ImageCache
 }
 
 type Options struct {
@@ -57,6 +58,7 @@ type Options struct {
 	Library         *library.Store
 	Sources         source.Resolver
 	Enrichment      *enrichment.Coordinator
+	ImageCache      *enrichment.ImageCache
 }
 
 type requestLoggerKey struct{}
@@ -97,6 +99,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 		opts.Library = provided.Library
 		opts.Sources = provided.Sources
 		opts.Enrichment = provided.Enrichment
+		opts.ImageCache = provided.ImageCache
 	}
 	if opts.AccessMode != "open" && opts.AccessMode != "accounts_optional" && opts.AccessMode != "accounts_required" {
 		return nil, fmt.Errorf("invalid access mode %q", opts.AccessMode)
@@ -110,7 +113,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	if opts.Sources == nil {
 		opts.Sources = source.DirectRegistry()
 	}
-	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources, enrichment: opts.Enrichment}
+	a := &application{logger: logger, db: db, build: build, queue: queuepkg.NewStore(db), options: opts, limiter: newRateLimiter(opts.QueueRate, time.Minute), authLimiter: newRateLimiter(opts.AuthRate, time.Minute), auth: auth.NewStore(db, params, opts.SessionLifetime), playback: opts.Playback, library: opts.Library, sources: opts.Sources, enrichment: opts.Enrichment, imageCache: opts.ImageCache}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health/live", a.live)
 	mux.HandleFunc("GET /api/v1/health/ready", a.ready)
@@ -147,6 +150,7 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("GET /api/v1/history", a.listHistory)
 	mux.HandleFunc("GET /api/v1/library/search", a.searchLibrary)
 	mux.HandleFunc("GET /api/v1/enrichment", a.getEnrichment)
+	mux.HandleFunc("GET /api/v1/enrichment/images/{key}", a.getEnrichmentImage)
 	static, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", http.FileServerFS(static))
 	return requestLogging(logger, a.authenticate(a.protectMutations(a.enforceAccess(captureRoute(mux))))), nil

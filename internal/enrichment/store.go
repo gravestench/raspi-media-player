@@ -66,3 +66,7 @@ func (s *Store) Put(ctx context.Context, value Result) error {
 	_, err = s.db.ExecContext(ctx, `INSERT INTO media_enrichments (cache_key,artist,title,provider,artist_url,image_url,image_source_url,image_attribution,biography,genres_json,related_artists_json,status,error_code,fetched_at,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(cache_key) DO UPDATE SET artist=excluded.artist,title=excluded.title,provider=excluded.provider,artist_url=excluded.artist_url,image_url=excluded.image_url,image_source_url=excluded.image_source_url,image_attribution=excluded.image_attribution,biography=excluded.biography,genres_json=excluded.genres_json,related_artists_json=excluded.related_artists_json,status=excluded.status,error_code=excluded.error_code,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`, value.CacheKey, value.Hint.Artist, value.Hint.Title, value.Provider, value.ArtistURL, value.Image.URL, value.Image.SourceURL, value.Image.Attribution, value.Biography, string(genresJSON), string(relatedJSON), value.Status, value.ErrorCode, fetchedAt, value.ExpiresAt)
 	return err
 }
+func (s *Store) Prune(ctx context.Context, now time.Time) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM media_enrichments WHERE expires_at < ?`, now.UTC().Format(time.RFC3339Nano))
+	return err
+}

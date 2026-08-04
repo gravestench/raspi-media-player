@@ -48,7 +48,12 @@ case "$1" in
       -audio-device "${RASPI_MEDIA_PLAYER_AUDIO_DEVICE:-auto}" \
       -cache-seconds "${RASPI_MEDIA_PLAYER_CACHE_SECONDS:-20}" \
       -player-retries "${RASPI_MEDIA_PLAYER_PLAYER_RETRIES:-1}" \
-      -history-days "${RASPI_MEDIA_PLAYER_HISTORY_DAYS:-90}"
+      -history-days "${RASPI_MEDIA_PLAYER_HISTORY_DAYS:-90}" \
+      -metadata-enabled="${RASPI_MEDIA_PLAYER_METADATA_ENABLED:-true}" \
+      -metadata-cache-days "${RASPI_MEDIA_PLAYER_METADATA_CACHE_DAYS:-7}" \
+      -metadata-user-agent "${RASPI_MEDIA_PLAYER_METADATA_USER_AGENT:-raspi-media-player/0.1}" \
+      -metadata-image-dir "${RASPI_MEDIA_PLAYER_METADATA_IMAGE_DIR:-/var/lib/raspi-media-player/artist-images}" \
+      -metadata-max-inflight "${RASPI_MEDIA_PLAYER_METADATA_MAX_INFLIGHT:-2}"
     log_end_msg $?
     ;;
   stop)

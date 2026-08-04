@@ -52,6 +52,11 @@ func main() {
 	flag.IntVar(&cfg.CacheSeconds, "cache-seconds", cfg.CacheSeconds, "network media cache duration")
 	flag.IntVar(&cfg.PlayerRetries, "player-retries", cfg.PlayerRetries, "media retries before marking an item failed")
 	flag.IntVar(&cfg.HistoryDays, "history-days", cfg.HistoryDays, "playback history retention in days; zero disables pruning")
+	flag.BoolVar(&cfg.MetadataEnabled, "metadata-enabled", cfg.MetadataEnabled, "enable external artist metadata enrichment")
+	flag.IntVar(&cfg.MetadataCacheDays, "metadata-cache-days", cfg.MetadataCacheDays, "artist metadata cache lifetime in days")
+	flag.StringVar(&cfg.MetadataUserAgent, "metadata-user-agent", cfg.MetadataUserAgent, "descriptive User-Agent for metadata providers")
+	flag.StringVar(&cfg.MetadataImageDir, "metadata-image-dir", cfg.MetadataImageDir, "directory for licensed artist image thumbnails")
+	flag.IntVar(&cfg.MetadataMaxInflight, "metadata-max-inflight", cfg.MetadataMaxInflight, "maximum simultaneous artist enrichment jobs")
 	flag.Parse()
 
 	logger, err := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
@@ -75,8 +80,15 @@ func main() {
 	libraryStore := library.NewStore(db, time.Duration(cfg.HistoryDays)*24*time.Hour)
 	sourceRegistry := source.DirectRegistry()
 	var metadataCoordinator *enrichment.Coordinator
-	if cfg.LastFMAPIKey != "" {
-		metadataCoordinator = enrichment.NewCoordinator(enrichment.NewStore(db), 7*24*time.Hour, enrichment.NewLastFMProvider(cfg.LastFMAPIKey, nil))
+	if cfg.MetadataEnabled {
+		providers := make([]enrichment.Provider, 0, 3)
+		if cfg.LastFMAPIKey != "" {
+			providers = append(providers, enrichment.NewLastFMProvider(cfg.LastFMAPIKey, nil))
+		}
+		providers = append(providers, enrichment.NewMusicBrainzProvider(cfg.MetadataUserAgent, nil), enrichment.NewWikimediaProvider(cfg.MetadataUserAgent, nil))
+		imageCache := enrichment.NewImageCache(cfg.MetadataImageDir, nil)
+		_ = imageCache.PruneOlderThan(time.Duration(cfg.MetadataCacheDays) * 24 * time.Hour)
+		metadataCoordinator = enrichment.NewCoordinator(enrichment.NewStore(db), time.Duration(cfg.MetadataCacheDays)*24*time.Hour, providers...).WithImageCache(imageCache).WithMaxInflight(cfg.MetadataMaxInflight)
 	}
 	if cfg.PlayerEnabled {
 		var output player.Player
@@ -102,7 +114,11 @@ func main() {
 	}
 
 	build := app.BuildInfo{Version: version, Commit: commit, BuiltAt: builtAt}
-	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore, Sources: sourceRegistry, Enrichment: metadataCoordinator})
+	var imageCache *enrichment.ImageCache
+	if metadataCoordinator != nil {
+		imageCache = enrichment.NewImageCache(cfg.MetadataImageDir, nil)
+	}
+	handler, err := app.New(logger, db, build, app.Options{QueueLimit: cfg.QueueLimit, QueueRate: cfg.QueueRate, AccessMode: cfg.AccessMode, AuthRate: cfg.AuthRate, SessionLifetime: time.Duration(cfg.SessionDays) * 24 * time.Hour, SecureCookie: cfg.SecureCookie, ArgonMemory: uint32(cfg.ArgonMemory), ArgonIterations: uint32(cfg.ArgonTime), Playback: playbackController, Library: libraryStore, Sources: sourceRegistry, Enrichment: metadataCoordinator, ImageCache: imageCache})
 	if err != nil {
 		logger.Error("application initialization failed", "error", err)
 		os.Exit(2)

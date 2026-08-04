@@ -75,9 +75,12 @@ config_check() {
     case "${RASPI_MEDIA_PLAYER_LOG_LEVEL:-info}" in debug|info|warn|error) ;; *) echo "Invalid log level" >&2; exit 1 ;; esac
     case "${RASPI_MEDIA_PLAYER_PLAYER_BACKEND:-mpv}" in mpv|fake) ;; *) echo "Invalid player backend" >&2; exit 1 ;; esac
     case "${RASPI_MEDIA_PLAYER_ADDR:-}" in *:*) ;; *) echo "Bind address must include a port" >&2; exit 1 ;; esac
-    for value in "${RASPI_MEDIA_PLAYER_QUEUE_LIMIT:-}" "${RASPI_MEDIA_PLAYER_QUEUE_RATE:-}" "${RASPI_MEDIA_PLAYER_AUTH_RATE:-}" "${RASPI_MEDIA_PLAYER_SESSION_DAYS:-}"; do
+    for value in "${RASPI_MEDIA_PLAYER_QUEUE_LIMIT:-}" "${RASPI_MEDIA_PLAYER_QUEUE_RATE:-}" "${RASPI_MEDIA_PLAYER_AUTH_RATE:-}" "${RASPI_MEDIA_PLAYER_SESSION_DAYS:-}" "${RASPI_MEDIA_PLAYER_METADATA_CACHE_DAYS:-7}" "${RASPI_MEDIA_PLAYER_METADATA_MAX_INFLIGHT:-2}"; do
         case "$value" in ''|*[!0-9]*|0) echo "Limits and lifetimes must be positive integers" >&2; exit 1 ;; esac
     done
+	if [ "${RASPI_MEDIA_PLAYER_METADATA_ENABLED:-true}" = true ]; then
+		[ -n "${RASPI_MEDIA_PLAYER_METADATA_USER_AGENT:-}" ] || { echo "Metadata User-Agent must identify the application" >&2; exit 1; }
+	fi
     db_path=${RASPI_MEDIA_PLAYER_DB:-$DATA_DIR/player.sqlite}
     [ -d "$(dirname -- "$db_path")" ] || { echo "Database directory does not exist: $(dirname -- "$db_path")" >&2; exit 1; }
     if [ "${RASPI_MEDIA_PLAYER_PLAYER_ENABLED:-true}" = true ] && [ "${RASPI_MEDIA_PLAYER_PLAYER_BACKEND:-mpv}" = mpv ]; then

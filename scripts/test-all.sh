@@ -24,6 +24,7 @@ export TEST_SERVER_BINARY="$TEST_TMP/raspi-media-player"
     -db "$TEST_TMP/test.sqlite" \
     -player-enabled=true \
     -player-backend=fake \
+	-metadata-enabled=false \
     -log-format json >"$TEST_TMP/server.log" 2>&1 &
 SERVER_PID=$!
 
@@ -43,6 +44,7 @@ TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-queue.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-auth.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-playback.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-library.sh"
+TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-enrichment.sh"
 TEST_BASE_URL="$TEST_BASE_URL" "$PROJECT_ROOT/scripts/test-validation.sh"
 TEST_BASE_URL="$TEST_BASE_URL" TEST_SERVER_BINARY="$TEST_SERVER_BINARY" "$PROJECT_ROOT/scripts/test-access-modes.sh"
 TEST_SERVER_BINARY="$TEST_SERVER_BINARY" "$PROJECT_ROOT/scripts/test-persistence.sh"

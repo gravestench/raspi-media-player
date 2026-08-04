@@ -23,3 +23,8 @@ RASPI_MEDIA_PLAYER_HISTORY_DAYS=90
 # Optional read-only artist metadata enrichment. Keep the real value only in
 # /etc/default/raspi-media-player; deployment upgrades preserve that file.
 RASPI_MEDIA_PLAYER_LASTFM_API_KEY=
+RASPI_MEDIA_PLAYER_METADATA_ENABLED=true
+RASPI_MEDIA_PLAYER_METADATA_CACHE_DAYS=7
+RASPI_MEDIA_PLAYER_METADATA_USER_AGENT='raspi-media-player/0.1 (https://github.com/dylanknuth/raspi-media-player)'
+RASPI_MEDIA_PLAYER_METADATA_IMAGE_DIR=/var/lib/raspi-media-player/artist-images
+RASPI_MEDIA_PLAYER_METADATA_MAX_INFLIGHT=2

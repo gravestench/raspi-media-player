@@ -2,14 +2,17 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/dylanknuth/raspi-media-player/internal/database"
+	"github.com/dylanknuth/raspi-media-player/internal/enrichment"
 )
 
 func testHandler(t *testing.T, logs *bytes.Buffer, options ...Options) http.Handler {
@@ -25,6 +28,49 @@ func testHandler(t *testing.T, logs *bytes.Buffer, options ...Options) http.Hand
 		t.Fatal(err)
 	}
 	return handler
+}
+
+type appMetadataProvider struct{}
+
+func (appMetadataProvider) Name() string { return "test" }
+func (appMetadataProvider) Lookup(_ context.Context, h enrichment.TrackHint) (enrichment.Result, error) {
+	return enrichment.Result{Hint: h, Provider: "test", Genres: []string{"jazz"}, RelatedArtists: []enrichment.ArtistSummary{{Name: "Related"}}, Status: "ready"}, nil
+}
+
+func TestEnabledEnrichmentEndpointBecomesReady(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "metadata.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	coordinator := enrichment.NewCoordinator(enrichment.NewStore(db), time.Hour, appMetadataProvider{})
+	var logs bytes.Buffer
+	handler, err := New(slog.New(slog.NewJSONHandler(&logs, nil)), db, BuildInfo{}, Options{Enrichment: coordinator})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/enrichment?title=Artist%20-%20Song", nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code == http.StatusOK && bytes.Contains(response.Body.Bytes(), []byte(`"status":"ready"`)) && bytes.Contains(response.Body.Bytes(), []byte(`"jazz"`)) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("enrichment did not become ready")
+}
+
+func TestEnrichmentImageEndpointRejectsUnknownKey(t *testing.T) {
+	var logs bytes.Buffer
+	handler := testHandler(t, &logs, Options{ImageCache: enrichment.NewImageCache(t.TempDir(), nil)})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/enrichment/images/not-present", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status=%d", response.Code)
+	}
 }
 
 func TestHealthAndVersionEndpoints(t *testing.T) {
