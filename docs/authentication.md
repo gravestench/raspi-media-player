@@ -7,13 +7,13 @@ the default.
 ## Access modes
 
 - `open` (default): anonymous queue access with optional accounts.
-- `accounts_optional`: currently equivalent for queue operations, and reserved
-  for account-only personal-library actions in later milestones.
+- `accounts_optional`: anonymous household queue/playback access plus optional
+  accounts for personal library and dashboard features.
 - `accounts_required`: anonymous users may view the queue but must sign in for
   queue mutations.
 
-Set `RASPI_MEDIA_PLAYER_ACCESS_MODE` to one of these values. Invalid modes stop
-the service at startup.
+Choose a mode during guided setup, through Admin, or with
+`RASPI_MEDIA_PLAYER_ACCESS_MODE`. Invalid modes stop the service at startup.
 
 ## Login and account creation
 

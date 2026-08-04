@@ -10,18 +10,36 @@ maintain the configured number of queued tracks behind the current item. It
 never removes or reorders manual selections. Automatically selected items are
 shown as added by `Auto-queue`.
 
-## Active listeners and taste weighting
+## Recommendation strategies
+
+The Player screen offers three strategies.
+
+### Active listeners · fair rotation
 
 Only signed-in users with a non-revoked session seen within the configured
 active-session window influence a refill. The player checks in every 30 seconds
 while its page is open. Anonymous browsers can still control and add to the
 queue, but cannot supply a personal recommendation profile.
 
-The engine reads each active user's recent personal playback history and counts
-artists. When cached enrichment is available, it also counts the genres of
-those artists. Counts are normalized per user before being merged, preventing a
-single account with a much longer history from completely overwhelming another
-active listener. A weighted random artist or genre is then selected.
+The engine selects the active user whose last successful auto-queue turn is
+oldest. Users with no previous turn tie and one is selected randomly. After a
+successful addition, the turn timestamp is persisted in SQLite, so everyone is
+represented across repeated refills and service restarts. A selected user's
+recent personal history becomes the weighted artist/genre pool for that turn.
+
+### Specific artists or genres
+
+Enter comma-separated artists and genres directly below Now Playing. Each seed
+has equal initial weight. Artist seeds become music searches; genre seeds use a
+random Last.fm tag track when a key is configured and otherwise fall back to a
+genre music search.
+
+### Related to the last queued item
+
+The engine parses the final queued item's artist/title and reads its cached
+genres and related artists. These become the next weighted pool, producing a
+continuation of the queue's current direction. If metadata has not finished or
+the title cannot be parsed, auto-queue waits rather than guessing.
 
 Artist choices search YouTube and randomly select from the returned playable
 tracks. Genre choices use a random Last.fm tag track when an API key is
@@ -31,11 +49,15 @@ Last.fm key they fall back to a genre search. Duplicate URLs are skipped.
 ## Settings
 
 - `Auto-queue`: enables or disables refilling.
+- `Recommendation strategy`: active users, explicit seeds, or related last item.
+- `Seed artists` / `Seed genres`: comma-separated values used by the explicit
+  strategy (up to 1,000 characters each).
 - `Tracks kept ahead`: desired count of queued automatic/manual tracks behind
   the currently playing item, from 1 through 20.
 - `Active session window`: number of seconds, from 30 through 3600, during
   which a signed-in browser affects recommendations.
 
-Integrated YouTube search must also be enabled. Auto-queue pauses when there
-are no active signed-in users, no personal history, or no playable search
-results.
+Integrated YouTube search must also be enabled. Active-listener mode pauses when
+there are no active signed-in users or no usable personal history. Explicit
+mode pauses with no seeds. Related mode pauses with no parseable/cached context.
+Every mode pauses when searches return no playable results.

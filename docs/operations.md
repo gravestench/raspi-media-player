@@ -68,3 +68,24 @@ sudo service raspi-media-player start
 the executable and init script. It deliberately preserves the database,
 configuration, logs, and service account so a reinstall or manual recovery is
 possible. Remove those preserved paths manually only after taking a backup.
+
+## Fresh installation with preserved configuration
+
+To return to the guided wizard while keeping operator configuration, first read
+the actual database and image-cache paths from `/etc/default/raspi-media-player`.
+Stop/uninstall the service, remove that database plus its exact `-wal` and `-shm`
+sidecars, remove generated image cache contents, and deploy again. Do not remove
+the defaults file or settings encryption key. Confirm
+`RASPI_MEDIA_PLAYER_SETUP_REQUIRED=true` before restart.
+
+After reinstalling, verify:
+
+```sh
+curl http://jukebox.local:8080/api/v1/setup/status
+curl -o /dev/null -w '%{http_code}\n' http://jukebox.local:8080/api/v1/queue
+```
+
+Setup status must report `"installed":false`; the normal queue API must return
+503 until the wizard creates the new administrator. This procedure permanently
+erases accounts, sessions, queue, history, library, settings overrides, and
+cached fair-rotation turns because all are stored in SQLite.

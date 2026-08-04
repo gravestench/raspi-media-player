@@ -35,7 +35,7 @@ main { width:min(1180px,100%); margin:auto; }
 h1,h2,h3 { font-family:ui-rounded,system-ui,sans-serif; margin:.35rem 0; letter-spacing:-.035em; }
 h1 { font-size:clamp(2rem,5vw,4rem); line-height:1.04; }
 h2 { font-size:clamp(1.65rem,3.5vw,2.45rem); }
-.track-details > p { color:#aeb2a7; font-size:1.05rem; }
+.track-details { min-width:0; }.track-details h1 { overflow-wrap:anywhere; }.track-details > p { color:#aeb2a7; font-size:1.05rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .progress-wrap { margin-top:2.2rem; }
 progress { appearance:none; width:100%; height:4px; border:0; border-radius:4px; overflow:hidden; background:#3b4036; }
 progress::-webkit-progress-bar { background:#3b4036; } progress::-webkit-progress-value { background:var(--green); } progress::-moz-progress-bar { background:var(--green); }
