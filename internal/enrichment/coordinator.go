@@ -107,12 +107,12 @@ func (c *Coordinator) fetch(key string, hint TrackHint) {
 		mergeResult(&merged, result.value)
 	}
 	if found {
+		merged.Provider = strings.Join(providerNames, ",")
 		if merged.Image.URL != "" && c.images != nil && strings.Contains(merged.Provider, "wikimedia") {
 			if cached, err := c.images.Cache(ctx, key, merged.Image); err == nil {
 				merged.Image = cached
 			}
 		}
-		merged.Provider = strings.Join(providerNames, ",")
 		merged.FetchedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		merged.ExpiresAt = time.Now().Add(c.ttl).UTC().Format(time.RFC3339Nano)
 		_ = c.store.Put(ctx, merged)
