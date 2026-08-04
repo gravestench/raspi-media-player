@@ -111,9 +111,13 @@ func (s *Store) Set(ctx context.Context, key, value, userID string) error {
 		}
 		stored = base64.RawURLEncoding.EncodeToString(append(nonce, s.aead.Seal(nil, nonce, []byte(stored), []byte(key))...))
 	}
+	var updatedBy any
+	if userID != "" {
+		updatedBy = userID
+	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO application_settings (key, value, secret, updated_at, updated_by_user_id)
 		VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, secret = excluded.secret, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = excluded.updated_by_user_id`, key, stored, definition.Secret, userID)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, secret = excluded.secret, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = excluded.updated_by_user_id`, key, stored, definition.Secret, updatedBy)
 	return err
 }
 

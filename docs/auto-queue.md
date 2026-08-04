@@ -1,8 +1,9 @@
 # Auto-queue
 
 Auto-queue is an optional household recommendation loop. It is disabled by
-default and can be configured by an administrator without restarting the
-service.
+default. Anyone allowed to control playback can turn it on or off from the Now
+Playing screen. An administrator configures its depth and listener window
+without restarting the service.
 
 The service checks the queue every 15 seconds and adds only enough tracks to
 maintain the configured number of queued tracks behind the current item. It

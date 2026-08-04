@@ -138,6 +138,11 @@ async function moveItem(index, delta) { const ids = state.snapshot.items.map(ite
 async function control(path, options = {}) { try { render(await api(path, { method: 'POST', ...options })); } catch (error) { showToast(error.message); } }
 async function refresh() { try { render(await api('/api/v1/queue')); } catch (error) { showToast(error.message); } }
 
+async function loadAutoQueueStatus() {
+  try { const value = await api('/api/v1/autoqueue'); const button = $('#autoqueue-toggle'); const status = $('#autoqueue-status'); button.hidden = !value.available; status.hidden = !value.available; button.dataset.enabled = String(Boolean(value.enabled)); button.setAttribute('aria-pressed', String(Boolean(value.enabled))); button.innerHTML = `<span aria-hidden="true">✦</span> Auto-queue ${value.enabled ? 'on' : 'off'}`; status.textContent = value.enabled ? `Keeping ${value.depth || 3} track${String(value.depth) === '1' ? '' : 's'} ahead from active listeners’ tastes.` : 'Turn on weighted recommendations for active signed-in listeners.'; }
+  catch { $('#autoqueue-toggle').hidden = true; $('#autoqueue-status').hidden = true; }
+}
+
 function connectEvents() {
   state.source?.close(); const connection = $('#connection-status'); state.source = new EventSource('/api/v1/events');
   state.source.addEventListener('open', () => { connection.className = 'connection online'; connection.lastChild.textContent = ' Connected'; });
@@ -212,6 +217,7 @@ $('#skip-button').addEventListener('click', async () => { try { const voted = st
 $('#clear-button').addEventListener('click', async () => { try { render(await api('/api/v1/queue', { method: 'DELETE', headers: revisionHeader() })); } catch (error) { showToast(error.message); } });
 $('#volume').addEventListener('input', event => { $('#volume-output').value = event.target.value; });
 $('#volume').addEventListener('change', async event => { try { render(await api('/api/v1/playback/volume', { method: 'PUT', body: JSON.stringify({ volume: Number(event.target.value) }) })); } catch (error) { showToast(error.message); } });
+$('#autoqueue-toggle').addEventListener('click', async event => { const button = event.currentTarget; button.disabled = true; try { const enabled = button.dataset.enabled !== 'true'; await api('/api/v1/autoqueue', { method:'PUT', body:JSON.stringify({ enabled }) }); await loadAutoQueueStatus(); showToast(`Auto-queue turned ${enabled ? 'on' : 'off'}.`); } catch (error) { showToast(error.message); } finally { button.disabled = false; } });
 
 $('#account-button').addEventListener('click', async () => { if (state.session) { try { await api('/api/v1/auth/logout', { method: 'POST' }); state.session = null; renderIdentity(); await loadLibrary(); showToast('Logged out. Anonymous queueing is still available.'); } catch (error) { showToast(error.message); } return; } resetAuth(); $('#auth-dialog').showModal(); $('#login-username').focus(); });
 $('#auth-close').addEventListener('click', () => $('#auth-dialog').close());
@@ -301,6 +307,6 @@ $('#setup-back').addEventListener('click', () => { state.setupStep--; renderSetu
 $('#setup-form').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); $('#setup-error').textContent = ''; try { const result = await api('/api/v1/setup/complete', { method:'POST', body:JSON.stringify(Object.fromEntries(form)) }); state.session = result.session; $('#setup-shell').hidden = true; $('#app-shell').hidden = false; renderIdentity(); await Promise.all([refresh(), loadLibrary()]); connectEvents(); location.hash = '#home'; navigate(); showToast('Your house jukebox is ready.'); } catch (error) { $('#setup-error').textContent = error.message; } });
 
 window.addEventListener('hashchange', navigate);
-async function boot() { try { const setup = await api('/api/v1/setup/status'); if (!setup.installed) { $('#app-shell').hidden = true; $('#setup-shell').hidden = false; renderSetupStep(); return; } } catch (error) { showToast(error.message); } await Promise.all([refresh(), loadSession()]); connectEvents(); navigate(); }
+async function boot() { try { const setup = await api('/api/v1/setup/status'); if (!setup.installed) { $('#app-shell').hidden = true; $('#setup-shell').hidden = false; renderSetupStep(); return; } } catch (error) { showToast(error.message); } await Promise.all([refresh(), loadSession(), loadAutoQueueStatus()]); connectEvents(); navigate(); }
 boot();
-setInterval(refresh, 30000);
+setInterval(() => { refresh(); loadAutoQueueStatus(); }, 30000);

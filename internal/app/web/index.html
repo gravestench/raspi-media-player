@@ -82,6 +82,8 @@
             <button id="skip-button" class="round-control" type="button" aria-label="Skip current item">›|</button>
             <label class="volume-control"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="100" aria-label="Volume"><output id="volume-output">100</output></label>
           </div>
+          <button id="autoqueue-toggle" class="autoqueue-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">✦</span> Auto-queue off</button>
+          <p id="autoqueue-status" class="autoqueue-status subtle" role="status" hidden></p>
           <p id="vote-status" class="vote-status" role="status" hidden></p>
           <p id="playback-state" class="subtle" role="status"></p>
         </div>

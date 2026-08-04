@@ -155,6 +155,8 @@ func New(logger *slog.Logger, db *sql.DB, build BuildInfo, options ...Options) (
 	mux.HandleFunc("GET /api/v1/admin/users", a.listAdminUsers)
 	mux.HandleFunc("PUT /api/v1/admin/users/{id}/role", a.updateAdminRole)
 	mux.HandleFunc("GET /api/v1/queue", a.getQueue)
+	mux.HandleFunc("GET /api/v1/autoqueue", a.autoQueueStatus)
+	mux.HandleFunc("PUT /api/v1/autoqueue", a.setAutoQueue)
 	mux.HandleFunc("POST /api/v1/queue/items", a.addQueueItem)
 	mux.HandleFunc("DELETE /api/v1/queue/items/{id}", a.removeQueueItem)
 	mux.HandleFunc("PUT /api/v1/queue/order", a.reorderQueue)
