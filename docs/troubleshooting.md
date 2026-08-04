@@ -8,6 +8,10 @@ process resource use, and recent logs. It omits cookies, passwords, session
 tokens, and source URLs from the queue summary and redacts URL credentials in
 logs.
 
+For stability observation, `raspi-media-player-soak` checks health, queue
+revision monotonicity, and process CPU/RSS every ten seconds for one hour by
+default. Override `DURATION_SECONDS` and `INTERVAL_SECONDS` for longer runs.
+
 ## No sound
 
 Confirm the web UI says `playing`, volume is nonzero, and `mpv` is present.

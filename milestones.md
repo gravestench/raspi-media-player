@@ -316,16 +316,16 @@ Acceptance criteria:
 
 Goal: produce a dependable first release suitable for daily use.
 
-- [ ] Audit authorization for every endpoint in all access modes.
-- [ ] Add database migration upgrade and rollback/recovery tests.
-- [ ] Add slow-client, malformed-request, large-request, and concurrency tests.
-- [ ] Add browser smoke tests for anonymous queueing and optional signup/login.
-- [ ] Verify clean installation and upgrade on a supported Raspberry Pi OS image.
-- [ ] Measure idle memory/CPU and playback stability over an extended run.
-- [ ] Add operator diagnostics that collect versions, health, player state, and
+- [x] Audit authorization for every endpoint in all access modes.
+- [x] Add database migration upgrade and rollback/recovery tests.
+- [x] Add slow-client, malformed-request, large-request, and concurrency tests.
+- [x] Add browser smoke tests for anonymous queueing and optional signup/login.
+- [x] Verify clean installation and upgrade on a supported Raspberry Pi OS image.
+- [x] Measure idle memory/CPU and playback stability over an extended run.
+- [x] Add operator diagnostics that collect versions, health, player state, and
       recent redacted logs.
-- [ ] Write release notes, known limitations, and troubleshooting documentation.
-- [ ] Tag the first household-ready release.
+- [x] Write release notes, known limitations, and troubleshooting documentation.
+- [x] Tag the first household-ready release.
 
 Acceptance criteria:
 
@@ -369,8 +369,11 @@ milestone is revised:
 - **Milestone 9:** Complete and verified locally on 2026-08-04. The provider
   boundary is implemented; YouTube extraction is intentionally disabled based
   on the documented technical and platform-policy review.
-- **Current milestone:** Milestone 10 — Hardening and household release
-- **Next feature milestone:** Household release and ongoing maintenance
+- **Milestone 10:** Complete and verified locally and on the Raspberry Pi on
+  2026-08-04, including diagnostics, live browser smoke testing, and playback
+  resource observation.
+- **Current milestone:** v0.1.0 household release complete
+- **Next feature milestone:** Household feedback and ongoing maintenance
 - **First playable target:** Completion of Milestone 4
 - **First household-friendly target:** Completion of Milestone 5
 - **First release target:** Completion of Milestone 10
