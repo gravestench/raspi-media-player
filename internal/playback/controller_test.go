@@ -136,6 +136,13 @@ func TestControllerControlsAndStopResume(t *testing.T) {
 	if err := controller.Pause(ctx); err != nil {
 		t.Fatal(err)
 	}
+	snapshot, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.Playback.Paused || snapshot.Playback.Status != "paused" {
+		t.Fatalf("pause command was not persisted synchronously: %+v", snapshot.Playback)
+	}
 	if err := controller.Seek(ctx, 42); err != nil {
 		t.Fatal(err)
 	}

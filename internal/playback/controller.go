@@ -14,23 +14,24 @@ import (
 )
 
 type Controller struct {
-	logger        *slog.Logger
-	queue         *queuepkg.Store
-	player        player.Player
-	mu            sync.Mutex
-	loadedID      string
-	stopped       bool
-	ctx           context.Context
-	cancel        context.CancelFunc
-	done          chan struct{}
-	retryLimit    int
-	retries       map[string]int
-	retryAfter    time.Time
-	history       HistoryRecorder
-	desiredVolume int
-	sources       source.Resolver
-	metadata      MetadataObserver
-	lastTitle     string
+	logger         *slog.Logger
+	queue          *queuepkg.Store
+	player         player.Player
+	mu             sync.Mutex
+	loadedID       string
+	stopped        bool
+	ctx            context.Context
+	cancel         context.CancelFunc
+	done           chan struct{}
+	retryLimit     int
+	retries        map[string]int
+	retryAfter     time.Time
+	history        HistoryRecorder
+	desiredVolume  int
+	sources        source.Resolver
+	metadata       MetadataObserver
+	lastTitle      string
+	commandedPause *bool
 }
 
 type HistoryRecorder interface {
@@ -204,8 +205,23 @@ func (c *Controller) handleEvent(event player.Event) {
 		}
 		c.mu.Lock()
 		desiredVolume := c.desiredVolume
+		commandedPause := c.commandedPause
+		if commandedPause != nil && event.State.Paused == *commandedPause {
+			c.commandedPause = nil
+		}
 		c.mu.Unlock()
 		state := queuepkg.PlaybackState{Status: event.State.Status, Title: event.State.Title, PositionSeconds: event.State.PositionSeconds, DurationSeconds: event.State.DurationSeconds, Paused: event.State.Paused, Buffering: event.State.Buffering, Volume: desiredVolume, Error: event.State.Error}
+		if commandedPause != nil {
+			state.Paused = *commandedPause
+			switch {
+			case state.Buffering:
+				state.Status = "buffering"
+			case state.Paused:
+				state.Status = "paused"
+			case state.Status == "paused":
+				state.Status = "playing"
+			}
+		}
 		if err := c.queue.UpdatePlayback(c.ctx, state); err != nil {
 			c.logger.Error("persist playback state failed", "error", err)
 		}
@@ -283,7 +299,9 @@ func (c *Controller) handleEvent(event player.Event) {
 	}
 }
 
-func (c *Controller) Pause(ctx context.Context) error { return c.player.SetPaused(ctx, true) }
+func (c *Controller) Pause(ctx context.Context) error {
+	return c.setPaused(ctx, true)
+}
 func (c *Controller) Resume(ctx context.Context) error {
 	snapshot, err := c.queue.Snapshot(ctx)
 	if err != nil {
@@ -299,7 +317,20 @@ func (c *Controller) Resume(ctx context.Context) error {
 		}
 		return nil
 	}
-	return c.player.SetPaused(ctx, false)
+	return c.setPaused(ctx, false)
+}
+
+func (c *Controller) setPaused(ctx context.Context, paused bool) error {
+	c.mu.Lock()
+	c.commandedPause = &paused
+	c.mu.Unlock()
+	if err := c.player.SetPaused(ctx, paused); err != nil {
+		c.mu.Lock()
+		c.commandedPause = nil
+		c.mu.Unlock()
+		return err
+	}
+	return c.queue.SetPaused(ctx, paused)
 }
 func (c *Controller) Stop(ctx context.Context) error {
 	if err := c.player.Stop(ctx); err != nil {

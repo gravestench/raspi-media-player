@@ -262,6 +262,20 @@ func (s *Store) SetVolume(ctx context.Context, volume int) error {
 	return err
 }
 
+func (s *Store) SetPaused(ctx context.Context, paused bool) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE queue_state
+		SET paused = ?,
+		    playback_status = CASE
+		        WHEN buffering = 1 THEN 'buffering'
+		        WHEN ? = 1 THEN 'paused'
+		        WHEN playback_status = 'paused' THEN 'playing'
+		        ELSE playback_status
+		    END,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE singleton = 1`, paused, paused)
+	return err
+}
+
 func (s *Store) FinishCurrent(ctx context.Context, id string, failure error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
